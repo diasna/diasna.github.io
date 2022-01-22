@@ -1,0 +1,28 @@
+---
+layout: post
+title:  "Menampilkan tulisan di OLED 0.96 dengan NodeMCU ESP8266"
+date:   2022-01-21 21:51:45 +0700
+categories: ESP8266
+---
+
+Kali ini saya akan mencoba memberikan tutorial bagaimana cara menampilkan tulisan pada OLED 0.96 dengan menggunakan NodeMCU ESP8266 WiFi Module.
+
+Ada beragam jenis OLED 0.96 dipasaran, tapi pada tutorial kali ini saya akan menggunakan OLED 0.96 seperti gambar di bawah ini:
+
+![OLED 0.96](/assets/2022-01-21-oled-096/oled-096-128x64.png){:style="display:block; margin-left:auto; margin-right:auto"}
+
+Saya akan menggunakan NodeMCU sebagai development board ESP8266. Sebelum memulai membuat rangkaian kita seharus nya mencari tahu pin apa saja yang tersedia pada suatu devboard/microcontroller dan datasheet dari modul apa saja yang akan kita pakai, agar rangkaian yang akan kita buat berjalan dengan baik.
+>Informasi datasheet sebuah modul biasanya tersebar bebas di internet, semisal temen-temen ingin mencari datasheet untuk modul oled 0.96 ini temen-temen tinggal cari di google `oled 0.96 datasheet`.
+
+![NodeMCU ESP8266 pinout](/assets/2022-01-21-oled-096/nodemcu-pinout.png){:style="display:block; margin-left:auto; margin-right:auto"}
+
+Dari informasi pinout diatas kita jadi bisa tahu pin mana yang akan kita pakai. Karena OLED 0.96 memakai I2C untuk berkomunikasi, maka kita bisa menghubungkan kedua pin SCL dan SDA pada D1 dan D2 di NodeMCU devboard, dan seperti biasa VCC dan GND ke 3.3V dan GND
+
+| NodeMCU | OLED 0.96 |
+| ------------ | ----------- |
+| 3.3V | VCC / VDD |
+| GND | GND |
+| D1 / GPIO5 / SCL | SCL / SCK |
+| D2 / GPIO4 / SDA | SDA |
+
+>Mungkin temen-temen menggunakan OLED 0.96 dengan pin SCK daripada SCL, atau VDD daripada VCC tapi ini bisa difungsikan dengan pin yang sama, jadi bisa di hubungkan satu sama lain.

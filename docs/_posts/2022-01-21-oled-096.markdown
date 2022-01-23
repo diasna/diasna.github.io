@@ -1,0 +1,116 @@
+---
+layout: post
+title:  "Menampilkan tulisan di OLED 0.96 dengan NodeMCU ESP8266"
+date:   2022-01-21 21:51:45 +0700
+categories: ESP8266
+---
+
+Kali ini saya akan mencoba memberikan tutorial bagaimana cara menampilkan tulisan pada OLED 0.96 dengan menggunakan NodeMCU ESP8266 WiFi Module.
+
+Ada beragam jenis OLED 0.96 dipasaran, tapi pada tutorial kali ini saya akan menggunakan OLED 0.96 seperti gambar di bawah ini:
+
+![OLED 0.96](/assets/2022-01-21-oled-096/oled-096-128x64.png){:style="display:block; margin-left:auto; margin-right:auto"}
+
+## Datasheet & Pinout
+Sebelum memulai membuat rangkaian kita seharus nya mencari tahu pin apa saja yang tersedia pada suatu devboard/microcontroller dan datasheet dari modul apa saja yang akan kita pakai, agar rangkaian yang akan kita buat berjalan dengan baik.
+>Informasi datasheet sebuah modul biasanya tersebar bebas di internet, semisal temen-temen ingin mencari datasheet untuk modul oled 0.96 ini temen-temen tinggal cari di google gambar `oled 0.96 datasheet`.
+
+![NodeMCU ESP8266 pinout](/assets/2022-01-21-oled-096/nodemcu-pinout.png){:style="display:block; margin-left:auto; margin-right:auto"}
+
+Dari informasi pinout diatas kita jadi bisa tahu pin mana yang akan kita pakai. Karena OLED 0.96 memakai I2C untuk berkomunikasi, maka kita bisa menghubungkan kedua pin SCL dan SDA pada D1 dan D2 di NodeMCU devboard, dan seperti biasa VCC dan GND ke 3.3V dan GND
+
+| NodeMCU | OLED 0.96 |
+| ------------ | ----------- |
+| 3.3V | VCC / VDD |
+| GND / G | GND |
+| D1 / GPIO5 / SCL | SCL / SCK |
+| D2 / GPIO4 / SDA | SDA |
+
+>Mungkin temen-temen menggunakan OLED 0.96 dengan pin SCK daripada SCL, atau VDD daripada VCC tapi ini bisa difungsikan sebagai pin yang sama, jadi bisa di hubungkan satu sama lain.
+
+## Wiring
+Gambar berikut adalah diagram untuk menghubungkan NodeMCU ESP8266 dengan OLED 0.96 yang temen-temen bisa ikuti.
+
+![Wiring](/assets/2022-01-21-oled-096/wiring.png){:style="display:block; margin-left:auto; margin-right:auto"}
+![Wiring](/assets/2022-01-21-oled-096/wiring.jpg){:style="display:block; margin-left:auto; margin-right:auto"}
+
+## Coding
+Sebelum mulai menulis kode diharapkan temen-temen sudah familiar dengan Arduino IDE atau PlatformIO di VSCode. Pada tutorial ini saya akan menggunakan PlatformIO di VSCode.
+
+Untuk menampilkan tulisan ke display OLED 0.96 ini kita akan menggunakan Library dari Adafruit yaitu `Adafruit_SSD1306`.
+
+![Wiring](/assets/2022-01-21-oled-096/library.png){:style="display:block; margin-left:auto; margin-right:auto"}
+
+Setelah menambahkan library diatas, selanjutnya kita akan import file header yang dibutuhkan dan deklarasi class library ke `main.cpp` kita.
+
+```cpp
+#include <Wire.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_SSD1306.h>
+
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+```
+Pada function `setup()` kita akan menyiapkan kode untuk inisialisasi library.
+```cpp
+if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+{
+    Serial.println(F("Gagal inisialisasi display"));
+    for(;;);
+}
+```
+
+Setiap kita ingin pelakukan perubahan di layar, kita harus memulainya dengan kode `display.clearDisplay();` untuk menghapus tampilan yang sedang ada di layar dan mengakhirinya dengan `display.display();` untuk menampilkan semua perubahan yang kita tulis dalam kode ke layar.
+
+Berikut adalah kode yang diperlukan untuk menulis sebuah tulisan ke layar, kode ini tidak harus diletakkan pada function `setup()` tapi bisa juga ditulis di dalam function `loop()` sesuai kebutuhan. 
+```cpp
+display.clearDisplay();
+display.setTextColor(WHITE);
+display.setCursor(0, 0);
+display.write("Hello World!");
+display.display();
+```
+
+Berikut adalah kode lengkap untuk menampilkan tulisan `Hello World!`
+```cpp
+#include <Arduino.h>
+
+#include <Wire.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_SSD1306.h>
+
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
+
+void setup()
+{
+    //Memulai komunikasi serial
+    Serial.begin(115200);
+
+    // Inisialisasi library display dengan tegangan 3.3v
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
+    {
+        Serial.println(F("Gagal inisialisasi display"));
+        for(;;);
+    }
+
+    // Reset ulang display
+    display.clearDisplay();
+
+    //Mengatur warna tulisan
+    display.setTextColor(WHITE);
+
+    //Menulis mulai dari pixel 0, 0
+    display.setCursor(0, 0);
+    display.write("Hello World!");
+
+    // Memperbaharui layar dengan data tulisan yang telah dipersiapkan di atas.
+    display.display();
+}
+
+void loop()
+{
+}
+```
+
+![Hello World](/assets/2022-01-21-oled-096/hello-world.jpg){:style="display:block; margin-left:auto; margin-right:auto"}
+
+Semoga tutorial ini membantu temen-temen dalam memulai belajar pemrograman Microcontroller menggunakan Arduino.

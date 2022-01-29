@@ -9,4 +9,4 @@ Kali ini saya akan mencoba memberikan tutorial bagaimana cara untuk _develop_/me
 
 Kenapa saya menggunakan VSCode sebagai IDE untuk _develop_ aplikasi Arduino adalah: 
 1. Dengan fitur _extension_ yang sangat lengkap VSCode dapat digunakan untuk _develop_ aplikasi dengan beragam bahasa pemrograman dan juga dengan banyaknya tools lain yang tersedia di _extensions_ ang membantu untuk _development_, dengan VSCode ini kita dapat membuat aplikasi Web, Desktop, Mobile sampai dengan Microcontroller 
-2. VCS
+2. VCS atau _Version Control System_ adalah salah satu fitur bawaan dari VSCode untuk menyimpan setiap perubahan pada kode kita, VCS ini juga berguna jika kita melakukan _develop_ berkolaborasi dengan orang lain dan juga jika kita menggunakan VCS dan menghubungkan ke server seperti GitHub kita tidak kawatir kode kita akan hilang, karena sudah tersimpan di Cloud.

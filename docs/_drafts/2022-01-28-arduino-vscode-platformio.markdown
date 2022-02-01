@@ -12,8 +12,7 @@ Berikut adalah alasan saya menggunakan VSCode sebagai IDE untuk _develop_ aplika
 2. VCS atau _Version Control System_ adalah salah satu fitur bawaan dari VSCode untuk menyimpan setiap perubahan pada kode kita, VCS ini juga berguna jika kita melakukan _develop_ berkolaborasi dengan orang lain dan juga jika kita menggunakan VCS dan menghubungkan ke server seperti GitHub kita tidak kawatir kode kita akan hilang, karena sudah tersimpan di Cloud.
 
 ## PlatformIO
-
-
+PlatformIO adalah salah satu extension yang ada di VSCode yang dapat digunakan untuk mendevelop berbagai macam _embedded system_ dalam satu konfigurasi, dengan PlatformIO kita bisa mendevelop di platform Espressif(ESP), Atmel, Teensy dan lain lain bisa di lihat list nya lengkap di [sini](https://docs.platformio.org/en/latest/platforms/index.html#embedded)
 
 ## Install VSCode
 Untuk installasi VSCode temen-temen tinggal buka aplikasi `Microsoft Store` kemudian ketik `VSCode` di kolom pencarian, kemudian klik install.

@@ -17,5 +17,6 @@ PlatformIO adalah salah satu extension yang ada di VSCode yang dapat digunakan u
 ## Install VSCode
 Untuk installasi VSCode temen-temen tinggal buka aplikasi `Microsoft Store` kemudian ketik `VSCode` di kolom pencarian, kemudian klik install.
 ![Microsoft Store](/assets/2022-01-28-arduino-vscode-platformio/msstore.png){:style="display:block; margin-left:auto;
+Setelah selesai instalasi, maka VSCode sudah bisa di jalankan melalui Start menu windows.
 
 ## Install PlatformIO extension

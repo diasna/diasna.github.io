@@ -1,4 +1,4 @@
-- name: Java (Spring Boot)
+- name: Java (Spring Boot, Hibernate, EJB, Flowable, ActiveMQ, Apache Struts, Play Framework)
   percentage: 90
   color: danger
 

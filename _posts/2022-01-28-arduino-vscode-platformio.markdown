@@ -3,6 +3,8 @@ layout: post
 title:  "Memulai pemrograman Arduino dengan VSCode + PlatformIO"
 date:   2022-01-28 22:54:45 +0700
 categories: Tools
+style: border
+color: primary
 --- 
 
 Kali ini saya akan mencoba memberikan tutorial bagaimana cara untuk _develop_/mengembangkan/ngoding Arduino dengan menggunakan IDE VSCode dan plugin PlatformIO sebagai alternatif dari Arduino IDE. IDE singkatan dari _Integrated Development Environment_, IDE sendiri adalah sebuah aplikasi yang membantu kita untuk _develop_ aplikasi lain, biasanya IDE mempunyai fitur yang cukup untuk memenuhi kebutuhan dalam _development_ di dalam satu aplikasi.

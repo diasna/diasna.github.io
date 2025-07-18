@@ -1,0 +1,11 @@
+- name: PostgreSQL, MySQL, MongoDB, Qdrant, Cassandra, Elasticsearch, Redis 
+  percentage: 85
+  color: info
+
+- name: Linux, Docker, Jenkins, Kubernetes 
+  percentage: 80
+  color: success
+
+- name: Flutter, Android SDK, Objective-C, J2me, C, devkitPro
+  percentage: 60
+  color: info

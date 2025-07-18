@@ -3,6 +3,8 @@ layout: post
 title:  "Menampilkan tulisan di OLED 0.96 dengan NodeMCU ESP8266"
 date:   2022-01-21 21:51:45 +0700
 categories: ESP8266
+style: fill
+color: success
 ---
 
 Kali ini saya akan mencoba memberikan tutorial bagaimana cara menampilkan tulisan pada OLED 0.96 dengan menggunakan NodeMCU ESP8266 WiFi Module.

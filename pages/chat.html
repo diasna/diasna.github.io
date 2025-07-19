@@ -4,6 +4,7 @@ title: Chat
 weight: 2
 permalink: /chat/
 ---
+
 <div class="chatgpt-container">
     <div class="container-fluid h-100">
         <div class="row h-100">
@@ -24,6 +25,38 @@ permalink: /chat/
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Question Presets -->
+                    <div class="question-presets" id="questionPresets" style="display: none;">
+                        <div class="presets-title">💡 Try asking:</div>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-question="What is Dias's educational background?">
+                                🎓 Education
+                            </button>
+                            <button class="preset-btn" data-question="What are Dias's technical skills and expertise?">
+                                💻 Skills & Tech Stack
+                            </button>
+                            <button class="preset-btn" data-question="Tell me about Dias's work experience">
+                                💼 Work Experience
+                            </button>
+                            <button class="preset-btn" data-question="What projects has Dias worked on?">
+                                🚀 Projects
+                            </button>
+                            <button class="preset-btn" data-question="What programming languages does Dias know?">
+                                📝 Programming Languages
+                            </button>
+                            <button class="preset-btn" data-question="Where has Dias worked before?">
+                                🏢 Previous Companies
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Show Presets Button (appears after presets are hidden) -->
+                    <div class="show-presets-container" id="showPresetsContainer" style="display: none;">
+                        <button class="show-presets-btn" id="showPresetsBtn">
+                            💡 Show suggested questions
+                        </button>
                     </div>
 
                     <!-- Chat Input -->
@@ -129,7 +162,7 @@ function simpleTextEmbedding(text) {
         // Experience terms
         'backend', 'frontend', 'api', 'microservices', 'kafka', 'elasticsearch', 'docker', 'kubernetes', 'jenkins',
         // Company/project terms
-        'asyx', 'heymiyagi', 'connexing', 'meruvian', 'finance', 'platform', 'mobile', 'app', 'android', 'ionic',
+        'asyx', 'indonesia', 'heymiyagi', 'connexing', 'meruvian', 'finance', 'platform', 'mobile', 'app', 'android', 'ionic', 'freelance', 'worked', 'company', 'employer',
         // General tech terms
         'software', 'development', 'programming', 'database', 'architecture', 'tdd', 'testing', 'web', 'skills'
     ];
@@ -213,6 +246,21 @@ function retrieveContext(query, topK = 2) {
         }
     }
     
+    // If asking about companies/work/where worked, prioritize experience category
+    else if (queryLower.includes('company') || queryLower.includes('companies') || queryLower.includes('worked') || 
+             queryLower.includes('employer') || queryLower.includes('where') || queryLower.includes('job')) {
+        const workItems = similarities.filter(item => 
+            item.metadata.category === 'experience' || 
+            item.text.toLowerCase().includes('asyx') ||
+            item.text.toLowerCase().includes('heymiyagi') ||
+            item.text.toLowerCase().includes('connexing') ||
+            item.text.toLowerCase().includes('meruvian')
+        );
+        if (workItems.length > 0) {
+            filteredItems = workItems;
+        }
+    }
+    
     // Sort by similarity and return top K
     const results = filteredItems
         .sort((a, b) => b.similarity - a.similarity)
@@ -234,6 +282,30 @@ document.addEventListener('DOMContentLoaded', async function() {
     const sendButton = document.getElementById('sendButton');
     const chatMessages = document.getElementById('chatMessages');
     const initStatus = document.getElementById('initStatus');
+    const questionPresets = document.getElementById('questionPresets');
+    const showPresetsContainer = document.getElementById('showPresetsContainer');
+    const showPresetsBtn = document.getElementById('showPresetsBtn');
+
+    // Show presets when system is ready
+    function showPresets() {
+        questionPresets.style.display = 'block';
+        showPresetsContainer.style.display = 'none';
+    }
+
+    // Hide presets and show the "show presets" button
+    function hidePresets() {
+        questionPresets.style.display = 'none';
+        showPresetsContainer.style.display = 'block';
+    }
+
+    // Handle preset button clicks
+    function handlePresetClick(question) {
+        messageInput.value = question;
+        messageInput.style.height = 'auto';
+        messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+        hidePresets();
+        sendMessage();
+    }
 
     // Initialize WebLLM
     async function initializeWebLLM() {
@@ -270,6 +342,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             messageInput.placeholder = "Ask me about Dias - his education, experience, skills, or projects...";
             messageInput.focus();
             
+            // Show question presets
+            showPresets();
+            
         } catch (error) {
             console.error("Failed to initialize WebLLM:", error);
             initStatus.textContent = "Failed to load AI model. Please refresh the page and try again.";
@@ -303,6 +378,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         const message = messageInput.value.trim();
         if (!message) return;
+
+        // Hide presets after first user message
+        hidePresets();
 
         // Add user message
         addMessage(message, true);
@@ -357,7 +435,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             const messages = [
                 {
                     role: "system",
-                    content: `You are a helpful AI assistant answering questions about Dias Nurul Arifin. Give concise, focused answers based ONLY on the provided context. Do not make up information or answer questions outside the provided context about Dias. If the question is specific (like asking about education, skills, or experience), focus only on that topic. Keep responses brief and to the point. If the provided context doesn't contain the answer, say you don't have that specific information about Dias.`
+                    content: `You are a helpful AI assistant that can ONLY answer questions about Dias Nurul Arifin using the specific information provided in the context. 
+
+STRICT RULES:
+- ONLY use information from the provided context
+- DO NOT make up, invent, or assume any information
+- DO NOT mention projects, companies, or details not explicitly stated in the context
+- If the context doesn't contain the answer, say "I don't have that specific information about Dias"
+- Keep responses factual and brief
+- Only state what is explicitly mentioned in the provided context`
                 },
                 {
                     role: "user",
@@ -367,7 +453,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const response = await engine.chat.completions.create({
                 messages: messages,
-                temperature: 0.7,
+                temperature: 0.3,
                 max_tokens: 150
             });
 
@@ -411,6 +497,19 @@ document.addEventListener('DOMContentLoaded', async function() {
             e.preventDefault();
             sendMessage();
         }
+    });
+
+    // Add event listeners for preset buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('preset-btn')) {
+            const question = e.target.getAttribute('data-question');
+            handlePresetClick(question);
+        }
+    });
+
+    // Add event listener for show presets button
+    showPresetsBtn.addEventListener('click', function() {
+        showPresets();
     });
 
     // Initialize WebLLM when page loads

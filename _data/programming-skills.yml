@@ -7,9 +7,9 @@
   color:
 
 - name: Javascript (TypeScript, ReactJS, Tailwind, Zustand)
-  percentage: 75
+  percentage: 70
   color: secondary
 
 - name: NLP (RAG, Prompt engineering)
-  percentage: 70
+  percentage: 50
   color: warning

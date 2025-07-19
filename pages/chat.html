@@ -121,7 +121,9 @@ function simpleTextEmbedding(text) {
     const words = text.toLowerCase().split(/\W+/).filter(w => w.length > 0);
     const vocab = [
         // Personal terms
-        'dias', 'nurul', 'arifin', 'engineer', 'developer', 'experience', 'profile', 'resume', 'education', 'university',
+        'dias', 'nurul', 'arifin', 'engineer', 'developer', 'experience', 'profile', 'resume', 
+        // Education terms
+        'education', 'university', 'degree', 'major', 'bachelor', 'b.sc', 'information', 'technology', 'gunadarma', 'study', 'studied',
         // Technical skills
         'java', 'python', 'spring', 'boot', 'fastapi', 'react', 'javascript', 'typescript', 'mongodb', 'postgresql',
         // Experience terms
@@ -129,7 +131,7 @@ function simpleTextEmbedding(text) {
         // Company/project terms
         'asyx', 'heymiyagi', 'connexing', 'meruvian', 'finance', 'platform', 'mobile', 'app', 'android', 'ionic',
         // General tech terms
-        'software', 'development', 'programming', 'database', 'architecture', 'tdd', 'testing', 'web', 'technology'
+        'software', 'development', 'programming', 'database', 'architecture', 'tdd', 'testing', 'web', 'skills'
     ];
     
     return vocab.map(word => {
@@ -147,22 +149,54 @@ function initializeEmbeddings() {
 }
 
 // Retrieve relevant context based on query
-function retrieveContext(query, topK = 3) {
+function retrieveContext(query, topK = 2) {
     const queryEmbedding = simpleTextEmbedding(query);
+    const queryLower = query.toLowerCase();
     
     const similarities = knowledgeBase.map(item => ({
         ...item,
         similarity: cosineSimilarity(queryEmbedding, item.embedding)
     }));
     
+    // Check for specific query types and filter accordingly
+    let filteredItems = similarities;
+    
+    // If asking about education/major/degree/university, prioritize education category
+    if (queryLower.includes('major') || queryLower.includes('degree') || queryLower.includes('education') || 
+        queryLower.includes('university') || queryLower.includes('study') || queryLower.includes('studied')) {
+        const educationItems = similarities.filter(item => 
+            item.metadata.category === 'education' || 
+            item.text.toLowerCase().includes('university') || 
+            item.text.toLowerCase().includes('degree') ||
+            item.text.toLowerCase().includes('b.sc')
+        );
+        if (educationItems.length > 0) {
+            filteredItems = educationItems;
+            topK = 1; // Only return the most relevant education item
+        }
+    }
+    
+    // If asking about skills/tech stack, prioritize skills category
+    else if (queryLower.includes('skill') || queryLower.includes('technology') || queryLower.includes('tech stack') ||
+             queryLower.includes('programming') || queryLower.includes('language')) {
+        const skillItems = similarities.filter(item => item.metadata.category === 'skills');
+        if (skillItems.length > 0) {
+            filteredItems = skillItems;
+        }
+    }
+    
     // Sort by similarity and return top K
-    const results = similarities
+    const results = filteredItems
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, topK)
-        .filter(item => item.similarity > 0.05); // Lower threshold for better recall
+        .filter(item => item.similarity > 0.1); // Higher threshold for better precision
         
     console.log("Query:", query);
-    console.log("Top results:", results.map(r => ({ text: r.text.substring(0, 50) + "...", similarity: r.similarity })));
+    console.log("Top results:", results.map(r => ({ 
+        text: r.text.substring(0, 50) + "...", 
+        similarity: r.similarity,
+        category: r.metadata.category 
+    })));
     
     return results;
 }
@@ -178,13 +212,22 @@ document.addEventListener('DOMContentLoaded', async function() {
         try {
             initStatus.textContent = "Loading WebLLM engine...";
             
-            // Create engine with a small model
+            // Create engine with progress callback
             engine = new webllm.MLCEngine();
             
             initStatus.textContent = "Downloading model... This may take a moment (~200MB).";
             
-            // Initialize with TinyLlama (very small, ~200MB model)
-            await engine.reload("TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC");
+            // Initialize with TinyLlama with progress tracking
+            await engine.reload("TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC", {
+                initProgressCallback: (progress) => {
+                    if (progress.progress !== undefined) {
+                        const percentage = Math.round(progress.progress * 100);
+                        initStatus.textContent = `Downloading model... ${percentage}% complete`;
+                    } else if (progress.text) {
+                        initStatus.textContent = progress.text;
+                    }
+                }
+            });
             
             initStatus.textContent = "Hi! I'm a local AI assistant with RAG capabilities running in your browser. How can I help you?";
             isInitialized = true;
@@ -260,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const messages = [
                 {
                     role: "system",
-                    content: `You are a helpful AI assistant answering questions about Dias Nurul Arifin, a Software Engineer. Use the provided context to give accurate information about his background, experience, and skills. If no relevant context is provided, answer based on your general knowledge but mention that you don't have specific information about this person. Be conversational and helpful.`
+                    content: `You are a helpful AI assistant answering questions about Dias Nurul Arifin. Give concise, focused answers based on the provided context. If the question is specific (like asking about education, skills, or experience), focus only on that topic. Keep responses brief and to the point. If no relevant context is provided for the specific question, say you don't have that information.`
                 },
                 {
                     role: "user",
@@ -270,8 +313,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             const response = await engine.chat.completions.create({
                 messages: messages,
-                temperature: 0.8,
-                max_tokens: 256
+                temperature: 0.7,
+                max_tokens: 150
             });
 
             // Remove thinking message

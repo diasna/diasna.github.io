@@ -12,7 +12,7 @@ permalink: /chat/
                 <div class="chat-interface">
                     <!-- Chat Messages Area -->
                     <div class="chat-messages" id="chatMessages">
-                        <!-- Welcome message -->
+                        <!-- Consent message -->
                         <div class="message-row assistant">
                             <div class="message-avatar">
                                 <div class="avatar-circle assistant-avatar">
@@ -21,7 +21,19 @@ permalink: /chat/
                             </div>
                             <div class="message-content">
                                 <div class="message-text">
-                                    <span id="initStatus">Initializing WebLLM... Please wait.</span>
+                                    <div id="consentMessage">
+                                        <p><strong>🤖 AI Chat Assistant</strong></p>
+                                        <p>This chat uses WebLLM to run a ~200MB AI model locally in your browser for privacy. The model is specialized to answer questions about Dias Nurul Arifin's professional background.</p>
+                                        <div style="margin-top: 12px;">
+                                            <button class="consent-btn consent-accept" id="acceptConsent">
+                                                ✅ Download & Start AI
+                                            </button>
+                                            <button class="consent-btn consent-decline" id="declineConsent">
+                                                ❌ Skip AI
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <span id="initStatus" style="display: none;">Initializing...</span>
                                 </div>
                             </div>
                         </div>
@@ -285,6 +297,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     const questionPresets = document.getElementById('questionPresets');
     const showPresetsContainer = document.getElementById('showPresetsContainer');
     const showPresetsBtn = document.getElementById('showPresetsBtn');
+    const consentMessage = document.getElementById('consentMessage');
+    const acceptConsent = document.getElementById('acceptConsent');
+    const declineConsent = document.getElementById('declineConsent');
+
+    // Handle consent acceptance
+    acceptConsent.addEventListener('click', function() {
+        consentMessage.style.display = 'none';
+        initStatus.style.display = 'block';
+        initializeWebLLM();
+    });
+
+    // Handle consent decline
+    declineConsent.addEventListener('click', function() {
+        consentMessage.innerHTML = '<p>AI features disabled. You can refresh the page to enable them.</p>';
+    });
 
     // Show presets when system is ready
     function showPresets() {
@@ -511,8 +538,5 @@ STRICT RULES:
     showPresetsBtn.addEventListener('click', function() {
         showPresets();
     });
-
-    // Initialize WebLLM when page loads
-    initializeWebLLM();
 });
 </script>

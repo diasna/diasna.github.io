@@ -297,3 +297,32 @@
 .show-presets-btn:active {
     transform: scale(0.98);
 }
+
+.consent-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-right: 8px;
+}
+
+.consent-accept {
+    background: #28a745;
+    color: white;
+}
+
+.consent-accept:hover {
+    background: #218838;
+}
+
+.consent-decline {
+    background: #6c757d;
+    color: white;
+}
+
+.consent-decline:hover {
+    background: #5a6268;
+}

@@ -148,8 +148,36 @@ function initializeEmbeddings() {
     }));
 }
 
+// Check if query is about Dias or within allowed context
+function isQueryRelevant(query) {
+    const queryLower = query.toLowerCase();
+    
+    // Keywords that indicate the query is about Dias
+    const diasKeywords = ['dias', 'nurul', 'arifin'];
+    const allowedTopics = [
+        'experience', 'skill', 'education', 'work', 'project', 'technology', 'programming',
+        'java', 'python', 'spring', 'developer', 'engineer', 'university', 'degree', 'major',
+        'backend', 'frontend', 'database', 'asyx', 'heymiyagi', 'connexing', 'meruvian',
+        'resume', 'background', 'profile', 'career', 'job', 'company', 'freelance'
+    ];
+    
+    // Check if query mentions Dias explicitly or uses allowed topic keywords
+    const mentionsDias = diasKeywords.some(keyword => queryLower.includes(keyword));
+    const hasAllowedTopic = allowedTopics.some(topic => queryLower.includes(topic));
+    
+    // Also check for pronouns that might refer to Dias in context
+    const hasPronouns = queryLower.match(/\b(he|his|him|you|your)\b/);
+    
+    return mentionsDias || hasAllowedTopic || hasPronouns;
+}
+
 // Retrieve relevant context based on query
 function retrieveContext(query, topK = 2) {
+    // First check if the query is relevant to our context
+    if (!isQueryRelevant(query)) {
+        return { isRelevant: false, results: [] };
+    }
+    
     const queryEmbedding = simpleTextEmbedding(query);
     const queryLower = query.toLowerCase();
     
@@ -198,7 +226,7 @@ function retrieveContext(query, topK = 2) {
         category: r.metadata.category 
     })));
     
-    return results;
+    return { isRelevant: true, results };
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -229,7 +257,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             });
             
-            initStatus.textContent = "Hi! I'm a local AI assistant with RAG capabilities running in your browser. How can I help you?";
+            initStatus.textContent = "Hi! I'm an AI assistant specialized in answering questions about Dias Nurul Arifin. Ask me about his education, experience, skills, or projects!";
             isInitialized = true;
             
             // Initialize embeddings
@@ -239,7 +267,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Enable input and button
             messageInput.disabled = false;
             sendButton.disabled = false;
-            messageInput.placeholder = "Ask me anything...";
+            messageInput.placeholder = "Ask me about Dias - his education, experience, skills, or projects...";
             messageInput.focus();
             
         } catch (error) {
@@ -290,7 +318,33 @@ document.addEventListener('DOMContentLoaded', async function() {
 
         try {
             // Retrieve relevant context using RAG
-            const relevantContext = retrieveContext(message);
+            const contextResult = retrieveContext(message);
+            
+            // Check if query is relevant to our context
+            if (!contextResult.isRelevant) {
+                thinkingMessage.remove();
+                addMessage("I'm specifically designed to answer questions about Dias Nurul Arifin - his background, experience, skills, education, and career. Please ask me something about Dias!", false);
+                
+                // Re-enable input
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+                return;
+            }
+            
+            const relevantContext = contextResult.results;
+            
+            // If no relevant context found even for a relevant query
+            if (relevantContext.length === 0) {
+                thinkingMessage.remove();
+                addMessage("I don't have specific information about that aspect of Dias. Please try asking about his education, work experience, skills, or projects.", false);
+                
+                // Re-enable input
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+                return;
+            }
             
             // Build context string
             let contextString = "";
@@ -303,7 +357,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const messages = [
                 {
                     role: "system",
-                    content: `You are a helpful AI assistant answering questions about Dias Nurul Arifin. Give concise, focused answers based on the provided context. If the question is specific (like asking about education, skills, or experience), focus only on that topic. Keep responses brief and to the point. If no relevant context is provided for the specific question, say you don't have that information.`
+                    content: `You are a helpful AI assistant answering questions about Dias Nurul Arifin. Give concise, focused answers based ONLY on the provided context. Do not make up information or answer questions outside the provided context about Dias. If the question is specific (like asking about education, skills, or experience), focus only on that topic. Keep responses brief and to the point. If the provided context doesn't contain the answer, say you don't have that specific information about Dias.`
                 },
                 {
                     role: "user",

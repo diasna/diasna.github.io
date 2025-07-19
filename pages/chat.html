@@ -289,6 +289,29 @@ function retrieveContext(query, topK = 2) {
     return { isRelevant: true, results };
 }
 
+// Format AI response as HTML list if it contains list-like content
+function formatResponseAsHTML(text) {
+    // Simple approach: just convert newlines to <br> and handle basic formatting
+    let formatted = text.replace(/\n/g, '<br>');
+    
+    // Convert simple bullet points to HTML lists
+    if (formatted.includes('- ') || formatted.includes('• ')) {
+        // Replace bullet points with list items
+        formatted = formatted.replace(/^(- |• )(.+)$/gm, '<li>$2</li>');
+        
+        // Wrap consecutive <li> elements in <ul>
+        formatted = formatted.replace(/(<li>.*?<\/li>(<br>)?)+/g, function(match) {
+            const items = match.replace(/<br>/g, '');
+            return `<ul>${items}</ul>`;
+        });
+        
+        // Clean up extra <br> tags around lists
+        formatted = formatted.replace(/<br><ul>/g, '<ul>').replace(/<\/ul><br>/g, '</ul>');
+    }
+    
+    return formatted;
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
     const messageInput = document.getElementById('messageInput');
     const sendButton = document.getElementById('sendButton');
@@ -454,8 +477,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             // Build context string
             let contextString = "";
             if (relevantContext.length > 0) {
-                contextString = "\n\nRelevant information:\n" + 
-                    relevantContext.map(item => `- ${item.text} (Source: ${item.metadata.source})`).join("\n");
+                contextString = "\n\nContext:\n" + 
+                    relevantContext.map(item => `${item.text}`).join("\n");
             }
             
             // Generate response using WebLLM with context
@@ -481,14 +504,18 @@ STRICT RULES:
             const response = await engine.chat.completions.create({
                 messages: messages,
                 temperature: 0.3,
-                max_tokens: 150
+                max_tokens: 200
             });
 
             // Remove thinking message
             thinkingMessage.remove();
 
             // Add AI response with context info
-            const aiResponse = response.choices[0].message.content;
+            let aiResponse = response.choices[0].message.content;
+            
+            // Format response as HTML list if it contains list-like content
+            aiResponse = formatResponseAsHTML(aiResponse);
+            
             let fullResponse = aiResponse;
             
             // Add context sources if any were used

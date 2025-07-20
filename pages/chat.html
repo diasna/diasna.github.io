@@ -640,18 +640,18 @@ async function handleFallbackConsent(userMessage, accepted) {
             loadingMessage.remove();
             
             // Process the API response
-            let responseText = "I checked with an external service. ";
+            let responseText;
             
             if (apiResponse) {
                 // Handle different possible response structures
                 if (apiResponse.lastMessage) {
                     responseText += `Here's the last visitor message: "${apiResponse.lastMessage}"`;
                 } else if (apiResponse.message) {
-                    responseText += `Response: "${apiResponse.message}"`;
+                    responseText += `${apiResponse.message}`;
                 } else if (apiResponse.data && apiResponse.data.message) {
-                    responseText += `Response: "${apiResponse.data.message}"`;
+                    responseText += `${apiResponse.data.message}`;
                 } else if (typeof apiResponse === 'string') {
-                    responseText += `Response: "${apiResponse}"`;
+                    responseText += `${apiResponse}`;
                 } else {
                     // If response is an object, try to extract meaningful information
                     const responseKeys = Object.keys(apiResponse);

@@ -969,21 +969,14 @@ STRICT RULES:
         if (aiResponse.toLowerCase().includes("i don't have that specific information") || 
             aiResponse.toLowerCase().includes("i don't have specific information")) {
             
-            if (!fallbackApiConsent) {
-                // Show fallback consent
-                addMessage(aiResponse, false);
-                showFallbackConsent(message);
-                
-                // Add to conversation history
-                conversationHistory.push({ role: 'assistant', content: aiResponse, timestamp: Date.now() });
-                manageConversationHistory();
-                return;
-            } else {
-                // User has already given consent, try fallback
-                addMessage(aiResponse + "\n\nLet me check external sources...", false);
-                await handleFallbackConsent(message, true);
-                return;
-            }
+            // Always show fallback consent for email collection
+            addMessage(aiResponse, false);
+            showFallbackConsent(message);
+            
+            // Add to conversation history
+            conversationHistory.push({ role: 'assistant', content: aiResponse, timestamp: Date.now() });
+            manageConversationHistory();
+            return;
         }
         
         // Format response as HTML list if it contains list-like content

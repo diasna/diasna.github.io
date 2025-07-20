@@ -61,6 +61,12 @@ permalink: /chat/
                             <button class="preset-btn" data-question="Where has Dias worked before?">
                                 🏢 Previous Companies
                             </button>
+                            <button class="preset-btn" data-question="Tell me more about that">
+                                🔗 Tell me more
+                            </button>
+                            <button class="preset-btn" data-question="Can you elaborate on this?">
+                                📋 Elaborate
+                            </button>
                         </div>
                     </div>
                     
@@ -97,6 +103,8 @@ let engine = null;
 let isInitialized = false;
 let embeddings = null;
 let knowledgeBase = [];
+let conversationHistory = [];
+let isProcessingChain = false;
 
 // Sample knowledge base - you can replace this with your own data
 const sampleKnowledge = [
@@ -176,13 +184,117 @@ function simpleTextEmbedding(text) {
         // Company/project terms
         'asyx', 'indonesia', 'heymiyagi', 'connexing', 'meruvian', 'finance', 'platform', 'mobile', 'app', 'android', 'ionic', 'freelance', 'worked', 'company', 'employer',
         // General tech terms
-        'software', 'development', 'programming', 'database', 'architecture', 'tdd', 'testing', 'web', 'skills'
+        'software', 'development', 'programming', 'database', 'architecture', 'tdd', 'testing', 'web', 'skills',
+        // Chain-related terms
+        'tell', 'more', 'details', 'explain', 'elaborate', 'further', 'what', 'how', 'why', 'when', 'where', 'then', 'next', 'also', 'additionally'
     ];
     
     return vocab.map(word => {
         const count = words.filter(w => w.includes(word) || word.includes(w)).length;
         return count / Math.max(words.length, 1); // Avoid division by zero
     });
+}
+
+// Detect if the query is part of a conversation chain
+function detectChainIntent(query, conversationHistory) {
+    const queryLower = query.toLowerCase();
+    
+    // Chain trigger phrases
+    const chainTriggers = [
+        'tell me more', 'more details', 'elaborate', 'explain further', 'go deeper',
+        'what about', 'how about', 'and then', 'what else', 'any other',
+        'more about', 'details about', 'further information', 'expand on',
+        'what happened next', 'continue', 'go on', 'keep going'
+    ];
+    
+    // Pronoun references indicating continuation
+    const pronouns = ['this', 'that', 'it', 'them', 'those', 'these'];
+    
+    // Follow-up question indicators
+    const followUpIndicators = ['also', 'additionally', 'furthermore', 'moreover', 'besides'];
+    
+    const hasChainTrigger = chainTriggers.some(trigger => queryLower.includes(trigger));
+    const hasPronoun = pronouns.some(pronoun => queryLower.includes(pronoun));
+    const hasFollowUp = followUpIndicators.some(indicator => queryLower.includes(indicator));
+    
+    // Check if query is short and likely referencing previous context
+    const isShortReference = query.split(' ').length <= 4 && (hasPronoun || hasChainTrigger);
+    
+    return {
+        isChain: hasChainTrigger || (conversationHistory.length > 0 && (hasPronoun || hasFollowUp || isShortReference)),
+        type: hasChainTrigger ? 'elaboration' : hasPronoun ? 'reference' : hasFollowUp ? 'followup' : 'continuation'
+    };
+}
+
+// Build conversation context for chaining
+function buildConversationContext(conversationHistory, maxTurns = 3) {
+    if (conversationHistory.length === 0) return "";
+    
+    // Get last few conversation turns
+    const recentHistory = conversationHistory.slice(-maxTurns * 2); // *2 because each turn has user and assistant
+    
+    let context = "\n\nConversation Context:\n";
+    for (let i = 0; i < recentHistory.length; i += 2) {
+        const userMsg = recentHistory[i];
+        const assistantMsg = recentHistory[i + 1];
+        
+        if (userMsg && assistantMsg) {
+            context += `Previous Q: ${userMsg.content}\n`;
+            context += `Previous A: ${assistantMsg.content}\n\n`;
+        }
+    }
+    
+    return context;
+}
+
+// Manage conversation history size
+function manageConversationHistory() {
+    const maxHistorySize = 20; // Keep last 20 messages (10 turns)
+    if (conversationHistory.length > maxHistorySize) {
+        conversationHistory = conversationHistory.slice(-maxHistorySize);
+    }
+}
+
+// Generate chain prompts for multi-step processing
+function generateChainPrompts(originalQuery, chainIntent, conversationContext) {
+    const prompts = [];
+    
+    if (chainIntent.type === 'elaboration') {
+        // For elaboration requests, create a clarification prompt first
+        prompts.push({
+            role: 'analysis',
+            content: `Based on the conversation context, what specific aspect of Dias Nurul Arifin should be elaborated on? Original query: "${originalQuery}"`
+        });
+        
+        prompts.push({
+            role: 'expansion',
+            content: `Provide detailed information about the identified aspect of Dias Nurul Arifin.`
+        });
+    } else if (chainIntent.type === 'reference') {
+        // For reference queries, first identify what "this/that/it" refers to
+        prompts.push({
+            role: 'reference_resolution',
+            content: `What does the pronoun in "${originalQuery}" refer to based on the conversation context?`
+        });
+        
+        prompts.push({
+            role: 'detailed_response',
+            content: `Answer the question about the identified topic regarding Dias Nurul Arifin.`
+        });
+    } else {
+        // For follow-up questions
+        prompts.push({
+            role: 'context_analysis',
+            content: `Analyze the conversation context and determine what additional information about Dias Nurul Arifin would be relevant.`
+        });
+        
+        prompts.push({
+            role: 'comprehensive_response',
+            content: `Provide comprehensive information addressing the follow-up question about Dias Nurul Arifin.`
+        });
+    }
+    
+    return prompts;
 }
 
 // Initialize embeddings for knowledge base
@@ -401,9 +513,12 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function addMessage(content, isUser = false) {
+    function addMessage(content, isUser = false, metadata = {}) {
         const messageRow = document.createElement('div');
         messageRow.className = `message-row ${isUser ? 'user' : 'assistant'}`;
+        
+        // Add chain indicator if this is part of a chain
+        const chainIndicator = metadata.isChainStep ? '<div class="chain-indicator">🔗 Chain step</div>' : '';
         
         messageRow.innerHTML = `
             <div class="message-avatar">
@@ -412,6 +527,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 </div>
             </div>
             <div class="message-content">
+                ${chainIndicator}
                 <div class="message-text">${content}</div>
             </div>
         `;
@@ -432,7 +548,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Hide presets after first user message
         hidePresets();
 
-        // Add user message
+        // Add user message to conversation history
+        const userMessage = { role: 'user', content: message, timestamp: Date.now() };
+        conversationHistory.push(userMessage);
+
+        // Add user message to UI
         addMessage(message, true);
         messageInput.value = '';
         messageInput.style.height = 'auto';
@@ -441,51 +561,72 @@ document.addEventListener('DOMContentLoaded', async function() {
         messageInput.disabled = true;
         sendButton.disabled = true;
 
+        try {
+            // Detect if this is part of a chain
+            const chainIntent = detectChainIntent(message, conversationHistory);
+            
+            if (chainIntent.isChain && conversationHistory.length > 1) {
+                await processChainedQuery(message, chainIntent);
+            } else {
+                await processSingleQuery(message);
+            }
+
+        } catch (error) {
+            console.error("Error generating response:", error);
+            addMessage("Sorry, I encountered an error. Please try again.", false);
+        }
+
+        // Re-enable input
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        messageInput.focus();
+    }
+
+    async function processSingleQuery(message) {
         // Add thinking message
         const thinkingMessage = addMessage("Thinking...", false);
 
-        try {
-            // Retrieve relevant context using RAG
-            const contextResult = retrieveContext(message);
+        // Retrieve relevant context using RAG
+        const contextResult = retrieveContext(message);
+        
+        // Check if query is relevant to our context
+        if (!contextResult.isRelevant) {
+            thinkingMessage.remove();
+            const response = "I'm specifically designed to answer questions about Dias Nurul Arifin - his background, experience, skills, education, and career. Please ask me something about Dias!";
+            addMessage(response, false);
             
-            // Check if query is relevant to our context
-            if (!contextResult.isRelevant) {
-                thinkingMessage.remove();
-                addMessage("I'm specifically designed to answer questions about Dias Nurul Arifin - his background, experience, skills, education, and career. Please ask me something about Dias!", false);
-                
-                // Re-enable input
-                messageInput.disabled = false;
-                sendButton.disabled = false;
-                messageInput.focus();
-                return;
-            }
+            // Add to conversation history
+            conversationHistory.push({ role: 'assistant', content: response, timestamp: Date.now() });
+            manageConversationHistory();
+            return;
+        }
+        
+        const relevantContext = contextResult.results;
+        
+        // If no relevant context found even for a relevant query
+        if (relevantContext.length === 0) {
+            thinkingMessage.remove();
+            const response = "I don't have specific information about that aspect of Dias. Please try asking about his education, work experience, skills, or projects.";
+            addMessage(response, false);
             
-            const relevantContext = contextResult.results;
-            
-            // If no relevant context found even for a relevant query
-            if (relevantContext.length === 0) {
-                thinkingMessage.remove();
-                addMessage("I don't have specific information about that aspect of Dias. Please try asking about his education, work experience, skills, or projects.", false);
-                
-                // Re-enable input
-                messageInput.disabled = false;
-                sendButton.disabled = false;
-                messageInput.focus();
-                return;
-            }
-            
-            // Build context string
-            let contextString = "";
-            if (relevantContext.length > 0) {
-                contextString = "\n\nContext:\n" + 
-                    relevantContext.map(item => `${item.text}`).join("\n");
-            }
-            
-            // Generate response using WebLLM with context
-            const messages = [
-                {
-                    role: "system",
-                    content: `You are a helpful AI assistant that can ONLY answer questions about Dias Nurul Arifin using the specific information provided in the context. 
+            // Add to conversation history
+            conversationHistory.push({ role: 'assistant', content: response, timestamp: Date.now() });
+            manageConversationHistory();
+            return;
+        }
+        
+        // Build context string
+        let contextString = "";
+        if (relevantContext.length > 0) {
+            contextString = "\n\nContext:\n" + 
+                relevantContext.map(item => `${item.text}`).join("\n");
+        }
+        
+        // Generate response using WebLLM with context
+        const messages = [
+            {
+                role: "system",
+                content: `You are a helpful AI assistant that can ONLY answer questions about Dias Nurul Arifin using the specific information provided in the context. 
 
 STRICT RULES:
 - ONLY use information from the provided context
@@ -494,48 +635,161 @@ STRICT RULES:
 - If the context doesn't contain the answer, say "I don't have that specific information about Dias"
 - Keep responses factual and brief
 - Only state what is explicitly mentioned in the provided context`
-                },
-                {
-                    role: "user",
-                    content: message + contextString
+            },
+            {
+                role: "user",
+                content: message + contextString
+            }
+        ];
+
+        const response = await engine.chat.completions.create({
+            messages: messages,
+            temperature: 0.3,
+            max_tokens: 200
+        });
+
+        // Remove thinking message
+        thinkingMessage.remove();
+
+        // Add AI response with context info
+        let aiResponse = response.choices[0].message.content;
+        
+        // Format response as HTML list if it contains list-like content
+        aiResponse = formatResponseAsHTML(aiResponse);
+        
+        let fullResponse = aiResponse;
+        
+        // Add context sources if any were used
+        if (relevantContext.length > 0) {
+            const sources = [...new Set(relevantContext.map(item => item.metadata.source))];
+            fullResponse += `\n\n📚 Sources: ${sources.join(", ")}`;
+        }
+        
+        addMessage(fullResponse, false);
+
+        // Add to conversation history
+        conversationHistory.push({ role: 'assistant', content: aiResponse, timestamp: Date.now() });
+        
+        // Manage conversation history size
+        manageConversationHistory();
+    }
+
+    async function processChainedQuery(message, chainIntent) {
+        isProcessingChain = true;
+        
+        // Add chain processing indicator
+        const chainMessage = addMessage("🔗 Processing chained query...", false, { isChainStep: true });
+
+        // Build conversation context
+        const conversationContext = buildConversationContext(conversationHistory);
+        
+        // Generate chain prompts
+        const chainPrompts = generateChainPrompts(message, chainIntent, conversationContext);
+        
+        let finalResponse = "";
+        let relevantContext = [];
+        
+        try {
+            // Process each step in the chain
+            for (let i = 0; i < chainPrompts.length; i++) {
+                const prompt = chainPrompts[i];
+                
+                // Update chain message
+                chainMessage.querySelector('.message-text').innerHTML = 
+                    `🔗 Step ${i + 1}/${chainPrompts.length}: ${prompt.role.replace('_', ' ')}...`;
+                
+                // For the first step, analyze what we need to focus on
+                if (i === 0) {
+                    // Determine context based on conversation history and current query
+                    const combinedQuery = message + conversationContext;
+                    const contextResult = retrieveContext(combinedQuery, 3); // Get more context for chains
+                    
+                    if (contextResult.isRelevant) {
+                        relevantContext = contextResult.results;
+                    }
                 }
-            ];
+                
+                // Build messages for this chain step
+                const stepMessages = [
+                    {
+                        role: "system",
+                        content: `You are analyzing a conversation about Dias Nurul Arifin. 
+                        
+Current step: ${prompt.role}
+Conversation context: ${conversationContext}
+Available information: ${relevantContext.map(item => item.text).join("\n")}
 
-            const response = await engine.chat.completions.create({
-                messages: messages,
-                temperature: 0.3,
-                max_tokens: 200
-            });
-
-            // Remove thinking message
-            thinkingMessage.remove();
-
-            // Add AI response with context info
-            let aiResponse = response.choices[0].message.content;
+For this step:
+- If this is reference_resolution: Identify what pronouns refer to in context
+- If this is analysis: Determine what aspect needs elaboration
+- If this is expansion/detailed_response: Provide comprehensive information
+- If this is context_analysis: Determine what additional info is relevant
+- ONLY use the provided information about Dias Nurul Arifin
+- Be specific and factual`
+                    },
+                    {
+                        role: "user",
+                        content: prompt.content + "\n\nOriginal query: " + message
+                    }
+                ];
+                
+                const stepResponse = await engine.chat.completions.create({
+                    messages: stepMessages,
+                    temperature: 0.3,
+                    max_tokens: 150
+                });
+                
+                const stepResult = stepResponse.choices[0].message.content;
+                
+                // Use the result of intermediate steps to refine the final response
+                if (i === chainPrompts.length - 1) {
+                    finalResponse = stepResult;
+                } else {
+                    // For intermediate steps, we might want to adjust context or approach
+                    console.log(`Chain step ${i + 1} result:`, stepResult);
+                }
+                
+                // Add a small delay between steps for better UX
+                if (i < chainPrompts.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
             
-            // Format response as HTML list if it contains list-like content
-            aiResponse = formatResponseAsHTML(aiResponse);
+            // Remove chain processing message
+            chainMessage.remove();
             
-            let fullResponse = aiResponse;
+            // Format and add final response
+            finalResponse = formatResponseAsHTML(finalResponse);
             
-            // Add context sources if any were used
+            let fullResponse = finalResponse;
+            
+            // Add context sources and chain indicator
             if (relevantContext.length > 0) {
                 const sources = [...new Set(relevantContext.map(item => item.metadata.source))];
                 fullResponse += `\n\n📚 Sources: ${sources.join(", ")}`;
             }
             
-            addMessage(fullResponse, false);
+            fullResponse += `\n\n🔗 This response was generated using prompt chaining (${chainPrompts.length} steps)`;
+            
+            addMessage(fullResponse, false, { isChainStep: true });
 
+            // Add to conversation history
+            conversationHistory.push({ 
+                role: 'assistant', 
+                content: finalResponse, 
+                timestamp: Date.now(),
+                metadata: { isChainResponse: true, chainType: chainIntent.type }
+            });
+            
+            // Manage conversation history size
+            manageConversationHistory();
+            
         } catch (error) {
-            console.error("Error generating response:", error);
-            thinkingMessage.querySelector('.message-text').textContent = 
-                "Sorry, I encountered an error. Please try again.";
+            chainMessage.remove();
+            throw error;
+        } finally {
+            isProcessingChain = false;
         }
-
-        // Re-enable input
-        messageInput.disabled = false;
-        sendButton.disabled = false;
-        messageInput.focus();
     }
 
     // Auto-resize textarea

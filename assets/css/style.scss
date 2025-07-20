@@ -326,3 +326,38 @@
 .consent-decline:hover {
     background: #5a6268;
 }
+
+/* Chain indicators */
+.chain-indicator {
+    font-size: 12px;
+    color: #6c757d;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chain-indicator::before {
+    content: "";
+    width: 8px;
+    height: 1px;
+    background: #6c757d;
+}
+
+.message-row.assistant .chain-indicator {
+    background: rgba(171, 104, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 12px;
+    border-left: 3px solid #ab68ff;
+    font-weight: 500;
+}
+
+/* Chain processing animation */
+@keyframes chain-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.message-text:has(.chain-indicator) {
+    animation: chain-pulse 2s infinite;
+}

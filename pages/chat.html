@@ -665,8 +665,6 @@ async function handleFallbackConsent(userMessage, accepted) {
                 responseText += "The external service didn't provide additional information about your question.";
             }
             
-            responseText += "\n\n⚠️ This information comes from an external source and may not be verified.";
-            
             addMessage(responseText, false);
             
             // Add to conversation history

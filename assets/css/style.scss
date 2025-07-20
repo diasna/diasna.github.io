@@ -102,7 +102,11 @@
     max-width: 768px;
     margin: 0 auto;
 }
-
+[data-theme="dark"] {
+    .input-box > textarea{
+        color: white;
+    }
+}
 .input-box {
     background: rgba(0, 0, 0, 0.05);
     border: 1px solid rgba(0, 0, 0, 0.1);

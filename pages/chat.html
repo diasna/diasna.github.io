@@ -105,6 +105,14 @@ let embeddings = null;
 let knowledgeBase = [];
 let conversationHistory = [];
 let isProcessingChain = false;
+let fallbackApiConsent = false;
+let fallbackApiUrl = 'https://lapor.diasa.workers.dev/'; // Change this to your API endpoint
+
+// Function to reset fallback consent (useful for testing)
+function resetFallbackConsent() {
+    fallbackApiConsent = false;
+    console.log("Fallback API consent reset");
+}
 
 // Sample knowledge base - you can replace this with your own data
 const sampleKnowledge = [
@@ -329,7 +337,7 @@ function isQueryRelevant(query) {
 }
 
 // Retrieve relevant context based on query
-function retrieveContext(query, topK = 2) {
+function retrieveContext(query, topK = 1) {
     // First check if the query is relevant to our context
     if (!isQueryRelevant(query)) {
         return { isRelevant: false, results: [] };
@@ -389,7 +397,7 @@ function retrieveContext(query, topK = 2) {
     const results = filteredItems
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, topK)
-        .filter(item => item.similarity > 0.1); // Higher threshold for better precision
+        .filter(item => item.similarity > 0.2); // Increased threshold for better precision
         
     console.log("Query:", query);
     console.log("Top results:", results.map(r => ({ 
@@ -422,6 +430,304 @@ function formatResponseAsHTML(text) {
     }
     
     return formatted;
+}
+
+// Clean up AI response to remove redundant information and improve formatting
+function cleanupAIResponse(response) {
+    // Remove multiple spaces and clean up formatting
+    let cleaned = response.trim();
+    
+    // Remove redundant phrases that might appear multiple times
+    cleaned = cleaned.replace(/\b(Dias Nurul Arifin|Dias)\b/g, 'Dias');
+    
+    // Fix common concatenation issues
+    cleaned = cleaned.replace(/([.!?])\s*([A-Z])/g, '$1 $2');
+    
+    // Remove duplicate information (simple approach)
+    const sentences = cleaned.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    const uniqueSentences = [];
+    const seenContent = new Set();
+    
+    for (let sentence of sentences) {
+        const normalizedSentence = sentence.trim().toLowerCase().replace(/\s+/g, ' ');
+        // Only add if we haven't seen similar content
+        if (!seenContent.has(normalizedSentence) && normalizedSentence.length > 10) {
+            uniqueSentences.push(sentence.trim());
+            seenContent.add(normalizedSentence);
+        }
+    }
+    
+    // Rejoin sentences with proper punctuation
+    cleaned = uniqueSentences.join('. ');
+    if (cleaned && !cleaned.match(/[.!?]$/)) {
+        cleaned += '.';
+    }
+    
+    return cleaned;
+}
+
+// Fallback API function to get visitor messages
+async function sendToFallbackApi(email, userMessage) {
+    try {
+        const response = await fetch(fallbackApiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                email,
+                message: userMessage
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Fallback API error:', error);
+        throw error;
+    }
+}
+
+// Function to show fallback consent
+function showFallbackConsent(userMessage) {
+    // Instead of returning HTML, add a message with an action button
+    const responseText = "I don't have information related to that question. I can forward it personally to Dias for you.";
+    
+    // Add the main response message
+    const messageRow = addMessage(responseText, false);
+    
+    // Add email input and button as a separate interactive message
+    const actionMessageRow = document.createElement('div');
+    actionMessageRow.className = 'message-row assistant';
+    
+    const uniqueId = 'userEmailInput_' + Date.now();
+    
+    actionMessageRow.innerHTML = `
+        <div class="message-avatar">
+            <div class="avatar-circle assistant-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+        </div>
+        <div class="message-content">
+            <div class="message-text">
+                <div style="margin-bottom: 8px;">
+                    <input type="email" id="${uniqueId}" placeholder="Enter your email to get Dias's reply" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 8px; font-size: 14px;">
+                    <div>
+                        <button class="consent-btn consent-accept" onclick="handleEmailSubmission('${userMessage.replace(/'/g, '&#39;').replace(/"/g, '&quot;')}', '${uniqueId}', this)" style="margin-right: 8px;">
+                            📧 Send to Dias
+                        </button>
+                        <button class="consent-btn consent-decline" onclick="handleFallbackConsent('${userMessage.replace(/'/g, '&#39;').replace(/"/g, '&quot;')}', false)">
+                            ❌ Skip
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const chatMessages = document.getElementById('chatMessages');
+    chatMessages.appendChild(actionMessageRow);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    return ""; // Return empty string since we're adding messages directly
+}
+
+// Handle email submission for personal forwarding
+async function handleEmailSubmission(userMessage, emailInputId, buttonElement) {
+    const emailInput = document.getElementById(emailInputId);
+    const email = emailInput ? emailInput.value.trim() : '';
+    
+    if (!email) {
+        alert('Please enter your email address.');
+        return;
+    }
+    
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert('Please enter a valid email address.');
+        return;
+    }
+    
+    fallbackApiConsent = true;
+    
+    // Find the action message container
+    const actionContainer = buttonElement.closest('.message-row');
+    const messageTextDiv = actionContainer.querySelector('.message-text');
+    
+    // Show loading state
+    messageTextDiv.innerHTML = `
+        <div style="text-align: center; padding: 16px;">
+            <div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 8px;"></div>
+            📧 Sending to Dias...
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </div>
+    `;
+    
+    try {
+        // Send to fallback API with email information
+        const apiResponse = await sendToFallbackApi(email, userMessage);
+        
+        // Show success state
+        messageTextDiv.innerHTML = `
+            <div style="text-align: center; padding: 16px; color: #155724;">
+                ✅ Message sent successfully!<br>
+                A reply will be sent to: <strong>${email}</strong>
+            </div>
+        `;
+        
+        // Add success message to chat
+        addMessage(`✅ Your question has been forwarded to Dias personally! A reply will be sent to: ${email}`, false);
+        
+        // Add to conversation history
+        conversationHistory.push({ 
+            role: 'assistant', 
+            content: `Question forwarded to Dias. Reply will be sent to: ${email}`, 
+            timestamp: Date.now(),
+            source: 'personal-forwarding'
+        });
+        
+    } catch (error) {
+        // Show error state
+        messageTextDiv.innerHTML = `
+            <div style="text-align: center; padding: 16px; color: #721c24;">
+                ❌ Failed to send message<br>
+                <button class="consent-btn consent-accept" onclick="handleEmailSubmission('${userMessage.replace(/'/g, '&#39;').replace(/"/g, '&quot;')}', '${emailInputId}', this)" style="margin-top: 8px;">
+                    🔄 Try Again
+                </button>
+            </div>
+        `;
+        
+        let errorMessage = "❌ Sorry, I couldn't forward your message to Dias at the moment.";
+        
+        // Provide more specific error information
+        if (error.message.includes('Failed to fetch')) {
+            errorMessage += " The forwarding service might be temporarily unavailable.";
+        } else if (error.message.includes('HTTP error')) {
+            errorMessage += ` Server responded with an error: ${error.message}`;
+        } else {
+            errorMessage += ` Error: ${error.message}`;
+        }
+        
+        errorMessage += " Please try again or contact Dias directly through his website.";
+        
+        addMessage(errorMessage, false);
+    }
+}
+
+// Handle fallback consent response
+async function handleFallbackConsent(userMessage, accepted) {
+    if (accepted) {
+        fallbackApiConsent = true;
+        
+        // Show loading message
+        const loadingMessage = addMessage("🌐 Checking external service...", false);
+        
+        try {
+            // Send to fallback API
+            const apiResponse = await sendToFallbackApi('WebLLM User', userMessage);
+            
+            // Remove loading message
+            loadingMessage.remove();
+            
+            // Process the API response
+            let responseText = "I checked with an external service. ";
+            
+            if (apiResponse) {
+                // Handle different possible response structures
+                if (apiResponse.lastMessage) {
+                    responseText += `Here's the last visitor message: "${apiResponse.lastMessage}"`;
+                } else if (apiResponse.message) {
+                    responseText += `Response: "${apiResponse.message}"`;
+                } else if (apiResponse.data && apiResponse.data.message) {
+                    responseText += `Response: "${apiResponse.data.message}"`;
+                } else if (typeof apiResponse === 'string') {
+                    responseText += `Response: "${apiResponse}"`;
+                } else {
+                    // If response is an object, try to extract meaningful information
+                    const responseKeys = Object.keys(apiResponse);
+                    if (responseKeys.length > 0) {
+                        responseText += `The service returned: ${JSON.stringify(apiResponse, null, 2)}`;
+                    } else {
+                        responseText += "The external service didn't provide additional information about your question.";
+                    }
+                }
+            } else {
+                responseText += "The external service didn't provide additional information about your question.";
+            }
+            
+            responseText += "\n\n⚠️ This information comes from an external source and may not be verified.";
+            
+            addMessage(responseText, false);
+            
+            // Add to conversation history
+            conversationHistory.push({ 
+                role: 'assistant', 
+                content: responseText, 
+                timestamp: Date.now(),
+                source: 'fallback-api'
+            });
+            
+        } catch (error) {
+            loadingMessage.remove();
+            
+            let errorMessage = "❌ Sorry, I couldn't connect to the external service.";
+            
+            // Provide more specific error information
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage += " The service might be offline or unreachable.";
+            } else if (error.message.includes('HTTP error')) {
+                errorMessage += ` Server responded with an error: ${error.message}`;
+            } else {
+                errorMessage += ` Error: ${error.message}`;
+            }
+            
+            errorMessage += "\n\nThe original response stands: I don't have specific details about that topic in my knowledge base about Dias Nurul Arifin.";
+            
+            addMessage(errorMessage, false);
+        }
+    } else {
+        addMessage("I understand. I'll keep our conversation local. Feel free to ask me about other aspects of Dias Nurul Arifin's background, experience, or skills!", false);
+    }
+}
+
+// Make the functions globally available
+window.handleFallbackConsent = handleFallbackConsent;
+window.handleEmailSubmission = handleEmailSubmission;
+
+// Global addMessage function
+function addMessage(content, isUser = false, metadata = {}) {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageRow = document.createElement('div');
+    messageRow.className = `message-row ${isUser ? 'user' : 'assistant'}`;
+    
+    // Add chain indicator if this is part of a chain
+    const chainIndicator = metadata.isChainStep ? '<div class="chain-indicator">🔗 Chain step</div>' : '';
+    
+    messageRow.innerHTML = `
+        <div class="message-avatar">
+            <div class="avatar-circle ${isUser ? 'user-avatar' : 'assistant-avatar'}">
+                <i class="fas ${isUser ? 'fa-user' : 'fa-robot'}"></i>
+            </div>
+        </div>
+        <div class="message-content">
+            ${chainIndicator}
+            <div class="message-text">${content}</div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageRow);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return messageRow;
 }
 
 document.addEventListener('DOMContentLoaded', async function() {
@@ -513,30 +819,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    function addMessage(content, isUser = false, metadata = {}) {
-        const messageRow = document.createElement('div');
-        messageRow.className = `message-row ${isUser ? 'user' : 'assistant'}`;
-        
-        // Add chain indicator if this is part of a chain
-        const chainIndicator = metadata.isChainStep ? '<div class="chain-indicator">🔗 Chain step</div>' : '';
-        
-        messageRow.innerHTML = `
-            <div class="message-avatar">
-                <div class="avatar-circle ${isUser ? 'user-avatar' : 'assistant-avatar'}">
-                    <i class="fas ${isUser ? 'fa-user' : 'fa-robot'}"></i>
-                </div>
-            </div>
-            <div class="message-content">
-                ${chainIndicator}
-                <div class="message-text">${content}</div>
-            </div>
-        `;
-        
-        chatMessages.appendChild(messageRow);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        return messageRow;
-    }
-
     async function sendMessage() {
         if (!isInitialized) {
             return;
@@ -592,11 +874,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Check if query is relevant to our context
         if (!contextResult.isRelevant) {
             thinkingMessage.remove();
-            const response = "I'm specifically designed to answer questions about Dias Nurul Arifin - his background, experience, skills, education, and career. Please ask me something about Dias!";
-            addMessage(response, false);
+            
+            // If user hasn't given fallback consent yet, show consent
+            if (!fallbackApiConsent) {
+                const responseText = "I'm specifically designed to answer questions about Dias Nurul Arifin - his background, experience, skills, education, and career.";
+                addMessage(responseText, false);
+                showFallbackConsent(message);
+            } else {
+                // User has already given consent, directly try fallback
+                const response = "I'm specifically designed to answer questions about Dias Nurul Arifin. Let me check external sources...";
+                addMessage(response, false);
+                await handleFallbackConsent(message, true);
+            }
             
             // Add to conversation history
-            conversationHistory.push({ role: 'assistant', content: response, timestamp: Date.now() });
+            conversationHistory.push({ role: 'assistant', content: "Not relevant to Dias", timestamp: Date.now() });
             manageConversationHistory();
             return;
         }
@@ -606,11 +898,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         // If no relevant context found even for a relevant query
         if (relevantContext.length === 0) {
             thinkingMessage.remove();
-            const response = "I don't have specific information about that aspect of Dias. Please try asking about his education, work experience, skills, or projects.";
-            addMessage(response, false);
+            
+            // If user hasn't given fallback consent yet, show consent
+            if (!fallbackApiConsent) {
+                const responseText = "I don't have specific information about that aspect of Dias. Please try asking about his education, work experience, skills, or projects.";
+                addMessage(responseText, false);
+                showFallbackConsent(message);
+            } else {
+                // User has already given consent, directly try fallback
+                const response = "I don't have specific information about that. Let me check external sources...";
+                addMessage(response, false);
+                await handleFallbackConsent(message, true);
+            }
             
             // Add to conversation history
-            conversationHistory.push({ role: 'assistant', content: response, timestamp: Date.now() });
+            conversationHistory.push({ role: 'assistant', content: "No specific information", timestamp: Date.now() });
             manageConversationHistory();
             return;
         }
@@ -618,8 +920,11 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Build context string
         let contextString = "";
         if (relevantContext.length > 0) {
-            contextString = "\n\nContext:\n" + 
-                relevantContext.map(item => `${item.text}`).join("\n");
+            contextString = "\n\nRelevant Information about Dias Nurul Arifin:\n";
+            relevantContext.forEach((item, index) => {
+                contextString += `${index + 1}. ${item.text}\n`;
+            });
+            contextString += "\nPlease use this information to answer the user's question about Dias Nurul Arifin. Be specific and only mention what is directly relevant to their question.";
         }
         
         // Generate response using WebLLM with context
@@ -634,7 +939,10 @@ STRICT RULES:
 - DO NOT mention projects, companies, or details not explicitly stated in the context
 - If the context doesn't contain the answer, say "I don't have that specific information about Dias"
 - Keep responses factual and brief
-- Only state what is explicitly mentioned in the provided context`
+- Only state what is explicitly mentioned in the provided context
+- When using multiple pieces of information, organize them clearly with proper context
+- Start with a direct answer, then provide supporting details if relevant
+- Use complete sentences and proper formatting`
             },
             {
                 role: "user",
@@ -653,6 +961,30 @@ STRICT RULES:
 
         // Add AI response with context info
         let aiResponse = response.choices[0].message.content;
+        
+        // Clean up the response - remove redundant information and improve formatting
+        aiResponse = cleanupAIResponse(aiResponse);
+        
+        // Check if AI says it doesn't have specific information and offer fallback
+        if (aiResponse.toLowerCase().includes("i don't have that specific information") || 
+            aiResponse.toLowerCase().includes("i don't have specific information")) {
+            
+            if (!fallbackApiConsent) {
+                // Show fallback consent
+                addMessage(aiResponse, false);
+                showFallbackConsent(message);
+                
+                // Add to conversation history
+                conversationHistory.push({ role: 'assistant', content: aiResponse, timestamp: Date.now() });
+                manageConversationHistory();
+                return;
+            } else {
+                // User has already given consent, try fallback
+                addMessage(aiResponse + "\n\nLet me check external sources...", false);
+                await handleFallbackConsent(message, true);
+                return;
+            }
+        }
         
         // Format response as HTML list if it contains list-like content
         aiResponse = formatResponseAsHTML(aiResponse);
@@ -725,7 +1057,9 @@ For this step:
 - If this is expansion/detailed_response: Provide comprehensive information
 - If this is context_analysis: Determine what additional info is relevant
 - ONLY use the provided information about Dias Nurul Arifin
-- Be specific and factual`
+- Be specific and factual
+- Organize information clearly and avoid redundant details
+- Use complete sentences and proper formatting`
                     },
                     {
                         role: "user",

@@ -78,7 +78,7 @@
 .message-content {
     flex: 1;
     min-width: 0;
-    max-width: 70%;
+    max-width: 90%;
 }
 
 .message-row.user .message-content {
@@ -401,10 +401,12 @@
 
 .message-bubble {
   max-width: 85%;
-  min-width: 100px;
-  padding: 10px 14px;
+  min-width: 120px;
+  padding: 12px 16px;
   border-radius: 18px;
   position: relative;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .agent-bubble {
@@ -581,7 +583,7 @@
 @media (max-width: 768px) {
   .modern-chat-container {
     height: calc(100vh - 120px);
-    margin: 0 10px;
+    margin: 0 5px;
     min-width: 280px;
   }
   
@@ -590,7 +592,7 @@
   }
   
   .message-bubble {
-    max-width: 90%;
+    max-width: 85%;
     min-width: 80px;
   }
   
@@ -615,6 +617,37 @@
 
 .download-progress {
   margin-top: 12px;
+}
+
+/* Better text wrapping for chat messages */
+.message-content p {
+  margin-bottom: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+  text-align: left;
+  width: 100%;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.user-message .message-content p {
+  text-align: left;
+}
+
+/* Make message content use full width of bubble */
+.modern-chat-container .message-content {
+  width: 100%;
+  display: block;
+}
+
+/* Ensure no extra spacing in message bubbles */
+.modern-chat-container .message-bubble {
+  max-width: 90%;
+}
+
+.modern-chat-container .message-content p {
+  margin: 0;
+  padding: 0;
 }
 
 .download-progress .progress {

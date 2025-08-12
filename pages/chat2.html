@@ -118,27 +118,11 @@ async function checkModelAvailability() {
       return isAvailable;
     }
     
-    // Fallback: try to load model silently to check if cached
-    console.log("Attempting silent model load to check cache...");
-    const config = {
-      temperature: 1.0,
-      top_p: 1
-    };
+    // Skip the silent test load for now as it can hang
+    // Just return false if no localStorage cache found
+    console.log("No localStorage cache found, assuming model not downloaded");
+    return false;
     
-    // Set a shorter timeout for the test load
-    const testEngine = new webllm.MLCEngine();
-    await testEngine.reload(selectedModel, config);
-    
-    // If we get here, model was cached
-    console.log("Model found via test load");
-    // Mark as downloaded in localStorage for future checks
-    localStorage.setItem(`webllm_model_${selectedModel}`, 'true');
-    
-    // Use the same engine instance for actual usage
-    webllmEngine = testEngine;
-    webllmEngine.setInitProgressCallback(updateEngineInitProgressCallback);
-    
-    return true;
   } catch (error) {
     console.log("Model availability check failed:", error);
     return false;
@@ -152,7 +136,13 @@ async function autoLoadModel() {
   const webllmStatus = document.getElementById('webllmStatus');
   
   try {
-    const isModelCached = await checkModelAvailability();
+    // Add timeout to prevent hanging
+    const checkPromise = checkModelAvailability();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Cache check timeout')), 5000)
+    );
+    
+    const isModelCached = await Promise.race([checkPromise, timeoutPromise]);
     
     if (isModelCached) {
       console.log("Model found in cache, auto-loading...");
@@ -167,16 +157,18 @@ async function autoLoadModel() {
       `;
       
       try {
-        // If checkModelAvailability already loaded the model, we might not need to reload
-        if (!isModelReady) {
-          // Load the cached model
-          const config = {
-            temperature: 1.0,
-            top_p: 1
-          };
-          
-          await webllmEngine.reload(selectedModel, config);
-        }
+        // Load the cached model with timeout
+        const config = {
+          temperature: 1.0,
+          top_p: 1
+        };
+        
+        const reloadPromise = webllmEngine.reload(selectedModel, config);
+        const reloadTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Model reload timeout')), 10000)
+        );
+        
+        await Promise.race([reloadPromise, reloadTimeoutPromise]);
         
         // Model is ready
         isModelReady = true;

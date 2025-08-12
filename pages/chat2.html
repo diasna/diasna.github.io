@@ -27,9 +27,10 @@ permalink: /chat_beta/
                   <p class="mb-3">This chat uses WebLLM technology and needs to download an AI model to your browser for offline operation.
 The model is Phi-4-mini-instruct-q0f16-MLC (591 MB)</p>
                   <div class="webllm-status" id="webllmStatus">
-                    <button class="btn btn-success btn-sm" id="downloadModelBtn" onclick="downloadModel()">
-                      <i class="fas fa-download mr-2"></i>Download Model
-                    </button>
+                    <div class="alert alert-info mb-0 py-2">
+                      <i class="fas fa-sync-alt fa-spin mr-2"></i>
+                      Checking for cached model...
+                    </div>
                   </div>
                   <div class="download-progress mt-3" id="downloadProgress" style="display: none;">
                     <div class="progress">
@@ -104,9 +105,40 @@ let selectedModel = "TinyLlama-1.1B-Chat-v0.4-q4f32_1-MLC-1k";
 // Check if model is already cached/downloaded
 async function checkModelAvailability() {
   try {
-    // Check if model is cached by attempting to initialize without downloading
-    const isAvailable = await webllmEngine.hasModelInCache(selectedModel);
-    return isAvailable;
+    // First check localStorage for our own tracking
+    const modelDownloaded = localStorage.getItem(`webllm_model_${selectedModel}`);
+    if (modelDownloaded === 'true') {
+      console.log("Model found in localStorage cache tracking");
+      return true;
+    }
+    
+    // Try WebLLM's hasModelInCache if available
+    if (webllmEngine.hasModelInCache) {
+      const isAvailable = await webllmEngine.hasModelInCache(selectedModel);
+      return isAvailable;
+    }
+    
+    // Fallback: try to load model silently to check if cached
+    console.log("Attempting silent model load to check cache...");
+    const config = {
+      temperature: 1.0,
+      top_p: 1
+    };
+    
+    // Set a shorter timeout for the test load
+    const testEngine = new webllm.MLCEngine();
+    await testEngine.reload(selectedModel, config);
+    
+    // If we get here, model was cached
+    console.log("Model found via test load");
+    // Mark as downloaded in localStorage for future checks
+    localStorage.setItem(`webllm_model_${selectedModel}`, 'true');
+    
+    // Use the same engine instance for actual usage
+    webllmEngine = testEngine;
+    webllmEngine.setInitProgressCallback(updateEngineInitProgressCallback);
+    
+    return true;
   } catch (error) {
     console.log("Model availability check failed:", error);
     return false;
@@ -117,61 +149,88 @@ async function checkModelAvailability() {
 async function autoLoadModel() {
   if (isAutoLoading || isModelReady) return;
   
-  const isModelCached = await checkModelAvailability();
+  const webllmStatus = document.getElementById('webllmStatus');
   
-  if (isModelCached) {
-    console.log("Model found in cache, auto-loading...");
-    isAutoLoading = true;
+  try {
+    const isModelCached = await checkModelAvailability();
     
-    // Update UI to show auto-loading
-    const webllmStatus = document.getElementById('webllmStatus');
-    const progressContainer = document.getElementById('downloadProgress');
-    
-    webllmStatus.innerHTML = `
-      <div class="alert alert-info mb-0 py-2">
-        <i class="fas fa-sync-alt fa-spin mr-2"></i>
-        Loading cached model...
-      </div>
-    `;
-    
-    try {
-      // Load the cached model
-      const config = {
-        temperature: 1.0,
-        top_p: 1
-      };
+    if (isModelCached) {
+      console.log("Model found in cache, auto-loading...");
+      isAutoLoading = true;
       
-      await webllmEngine.reload(selectedModel, config);
-      
-      // Model is ready
-      isModelReady = true;
-      isAutoLoading = false;
-      
-      // Show ready status
+      // Update UI to show auto-loading
       webllmStatus.innerHTML = `
-        <div class="alert alert-success mb-0 py-2">
-          <i class="fas fa-check-circle mr-2"></i>
-          Model loaded from cache! You can now chat offline.
+        <div class="alert alert-info mb-0 py-2">
+          <i class="fas fa-sync-alt fa-spin mr-2"></i>
+          Loading cached model...
         </div>
       `;
       
-      // Enable chat input
-      enableChatInput();
-      
-      // Add system message
-      addMessage("Welcome back! The WebLLM model was loaded from cache and is ready to chat.", 'agent');
-      
-    } catch (error) {
-      console.error('Error auto-loading model:', error);
-      isAutoLoading = false;
-      
-      // Fallback to download button
+      try {
+        // If checkModelAvailability already loaded the model, we might not need to reload
+        if (!isModelReady) {
+          // Load the cached model
+          const config = {
+            temperature: 1.0,
+            top_p: 1
+          };
+          
+          await webllmEngine.reload(selectedModel, config);
+        }
+        
+        // Model is ready
+        isModelReady = true;
+        isAutoLoading = false;
+        
+        // Show ready status
+        webllmStatus.innerHTML = `
+          <div class="alert alert-success mb-0 py-2">
+            <i class="fas fa-check-circle mr-2"></i>
+            Model loaded from cache! You can now chat offline.
+          </div>
+        `;
+        
+        // Enable chat input
+        enableChatInput();
+        
+        // Add system message
+        addMessage("Welcome back! The WebLLM model was loaded from cache and is ready to chat.", 'agent');
+        
+      } catch (error) {
+        console.error('Error auto-loading model:', error);
+        isAutoLoading = false;
+        
+        // Clear localStorage cache if load failed
+        localStorage.removeItem(`webllm_model_${selectedModel}`);
+        
+        // Fallback to download button
+        webllmStatus.innerHTML = `
+          <div class="alert alert-warning mb-0 py-2">
+            <i class="fas fa-exclamation-triangle mr-2"></i>
+            Failed to load cached model. 
+          </div>
+          <button class="btn btn-success btn-sm mt-2" id="downloadModelBtn" onclick="downloadModel()">
+            <i class="fas fa-download mr-2"></i>Download Model
+          </button>
+        `;
+      }
+    } else {
+      console.log("No cached model found, showing download button");
+      // No cached model, show download button
       webllmStatus.innerHTML = `
         <button class="btn btn-success btn-sm" id="downloadModelBtn" onclick="downloadModel()">
           <i class="fas fa-download mr-2"></i>Download Model
         </button>
       `;
     }
+  } catch (error) {
+    console.error('Error checking model availability:', error);
+    // Fallback to download button on any error
+    webllmStatus.innerHTML = `
+      <button class="btn btn-success btn-sm" id="downloadModelBtn" onclick="downloadModel()">
+        <i class="fas fa-download mr-2"></i>Download Model
+      </button>
+    `;
   }
 }
 
@@ -232,6 +291,9 @@ async function downloadModel() {
     
     // Model is ready
     isModelReady = true;
+    
+    // Mark model as downloaded in localStorage
+    localStorage.setItem(`webllm_model_${selectedModel}`, 'true');
     
     // Hide progress and show ready status
     progressContainer.style.display = 'none';
@@ -538,7 +600,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Check if model is already downloaded and auto-load
   setTimeout(() => {
     autoLoadModel();
-  }, 1000); // Small delay to ensure UI is ready
+  }, 500); // Reduced delay for faster response
 });
 
 // Update placeholder and enable input after model is ready

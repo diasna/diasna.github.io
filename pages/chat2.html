@@ -23,8 +23,26 @@ permalink: /chat_beta/
               </div>
               <div class="message-bubble agent-bubble">
                 <div class="message-content">
-                  <p class="mb-2"><strong>👋 Welcome!</strong></p>
-                  <p class="mb-0">I'm your AI assistant. How can I help you today?</p>
+                  <p class="mb-2"><strong>🤖 WebLLM Chat Assistant</strong></p>
+                  <p class="mb-3">This chat uses WebLLM technology and needs to download an AI model to your browser for offline operation.
+The model is Phi-4-mini-instruct-q0f16-MLC (591 MB)</p>
+                  <div class="webllm-status" id="webllmStatus">
+                    <button class="btn btn-success btn-sm" id="downloadModelBtn" onclick="downloadModel()">
+                      <i class="fas fa-download mr-2"></i>Download Model
+                    </button>
+                  </div>
+                  <div class="download-progress mt-3" id="downloadProgress" style="display: none;">
+                    <div class="progress">
+                      <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                           role="progressbar" 
+                           id="progressBar" 
+                           style="width: 0%" 
+                           aria-valuenow="0" 
+                           aria-valuemin="0" 
+                           aria-valuemax="100">0%</div>
+                    </div>
+                    <small class="text-muted mt-2 d-block" id="downloadStatus">Preparing download...</small>
+                  </div>
                 </div>
                 <div class="message-timestamp">
                   <small class="text-muted">Just now</small>
@@ -40,13 +58,15 @@ permalink: /chat_beta/
             <textarea 
               class="form-control border-0 bg-light rounded-pill flex-grow-1" 
               id="messageInput" 
-              placeholder="Type your message..." 
+              placeholder="Download the model first to start chatting..." 
               rows="1"
+              disabled
               onkeydown="handleKeyPress(event)"
             ></textarea>
             <button 
               class="btn btn-primary rounded-pill d-flex align-items-center justify-content-center send-button" 
               id="sendButton" 
+              disabled
               onclick="sendMessage()"
             >
               <i class="fas fa-paper-plane"></i>
@@ -59,9 +79,210 @@ permalink: /chat_beta/
   </div>
 </div>
 
-<script>
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
 // Chat functionality
 let messageCount = 0;
+let isModelReady = false;
+let webllmEngine = null;
+let isAutoLoading = false;
+
+/*************** WebLLM logic ***************/
+const messages = [
+  {
+    content: "You are a helpful AI agent helping users.",
+    role: "system"
+  }
+];
+
+const availableModels = webllm.prebuiltAppConfig.model_list.map(
+  (m) => m.model_id
+);
+let selectedModel = "TinyLlama-1.1B-Chat-v0.4-q4f32_1-MLC-1k";
+
+// Check if model is already cached/downloaded
+async function checkModelAvailability() {
+  try {
+    // Check if model is cached by attempting to initialize without downloading
+    const isAvailable = await webllmEngine.hasModelInCache(selectedModel);
+    return isAvailable;
+  } catch (error) {
+    console.log("Model availability check failed:", error);
+    return false;
+  }
+}
+
+// Auto-load model if already downloaded
+async function autoLoadModel() {
+  if (isAutoLoading || isModelReady) return;
+  
+  const isModelCached = await checkModelAvailability();
+  
+  if (isModelCached) {
+    console.log("Model found in cache, auto-loading...");
+    isAutoLoading = true;
+    
+    // Update UI to show auto-loading
+    const webllmStatus = document.getElementById('webllmStatus');
+    const progressContainer = document.getElementById('downloadProgress');
+    
+    webllmStatus.innerHTML = `
+      <div class="alert alert-info mb-0 py-2">
+        <i class="fas fa-sync-alt fa-spin mr-2"></i>
+        Loading cached model...
+      </div>
+    `;
+    
+    try {
+      // Load the cached model
+      const config = {
+        temperature: 1.0,
+        top_p: 1
+      };
+      
+      await webllmEngine.reload(selectedModel, config);
+      
+      // Model is ready
+      isModelReady = true;
+      isAutoLoading = false;
+      
+      // Show ready status
+      webllmStatus.innerHTML = `
+        <div class="alert alert-success mb-0 py-2">
+          <i class="fas fa-check-circle mr-2"></i>
+          Model loaded from cache! You can now chat offline.
+        </div>
+      `;
+      
+      // Enable chat input
+      enableChatInput();
+      
+      // Add system message
+      addMessage("Welcome back! The WebLLM model was loaded from cache and is ready to chat.", 'agent');
+      
+    } catch (error) {
+      console.error('Error auto-loading model:', error);
+      isAutoLoading = false;
+      
+      // Fallback to download button
+      webllmStatus.innerHTML = `
+        <button class="btn btn-success btn-sm" id="downloadModelBtn" onclick="downloadModel()">
+          <i class="fas fa-download mr-2"></i>Download Model
+        </button>
+      `;
+    }
+  }
+}
+
+// Callback function for initializing progress
+function updateEngineInitProgressCallback(report) {
+  console.log("initialize", report.progress);
+  
+  // Update our existing progress UI
+  const progressBar = document.getElementById('progressBar');
+  const downloadStatus = document.getElementById('downloadStatus');
+  
+  if (progressBar && downloadStatus) {
+    const progress = Math.round(report.progress * 100);
+    progressBar.style.width = progress + '%';
+    progressBar.setAttribute('aria-valuenow', progress);
+    progressBar.textContent = progress + '%';
+    downloadStatus.textContent = report.text;
+  }
+}
+
+// Create engine instance
+webllmEngine = new webllm.MLCEngine();
+webllmEngine.setInitProgressCallback(updateEngineInitProgressCallback);
+
+// WebLLM Model Download Function
+async function downloadModel() {
+  // Prevent manual download if auto-loading is in progress
+  if (isAutoLoading) {
+    console.log("Auto-loading in progress, skipping manual download");
+    return;
+  }
+  
+  // Prevent re-download if model is already ready
+  if (isModelReady) {
+    console.log("Model already ready, skipping download");
+    return;
+  }
+  
+  const downloadBtn = document.getElementById('downloadModelBtn');
+  const progressContainer = document.getElementById('downloadProgress');
+  const progressBar = document.getElementById('progressBar');
+  const downloadStatus = document.getElementById('downloadStatus');
+  const webllmStatus = document.getElementById('webllmStatus');
+  
+  // Hide download button and show progress
+  downloadBtn.style.display = 'none';
+  progressContainer.style.display = 'block';
+  
+  try {
+    // Initialize WebLLM engine with real model download
+    const config = {
+      temperature: 1.0,
+      top_p: 1
+    };
+    
+    // Start the actual model download
+    await webllmEngine.reload(selectedModel, config);
+    
+    // Model is ready
+    isModelReady = true;
+    
+    // Hide progress and show ready status
+    progressContainer.style.display = 'none';
+    webllmStatus.innerHTML = `
+      <div class="alert alert-success mb-0 py-2">
+        <i class="fas fa-check-circle mr-2"></i>
+        Model loaded successfully! You can now chat offline.
+      </div>
+    `;
+    
+    // Enable chat input
+    enableChatInput();
+    
+    // Add system message
+    addMessage("Great! The WebLLM model has been downloaded and loaded. I'm now ready to chat with you offline!", 'agent');
+    
+  } catch (error) {
+    console.error('Error downloading model:', error);
+    
+    // Show error state
+    progressContainer.style.display = 'none';
+    webllmStatus.innerHTML = `
+      <div class="alert alert-danger mb-0 py-2">
+        <i class="fas fa-exclamation-triangle mr-2"></i>
+        Failed to download model: ${error.message}
+        <button class="btn btn-link btn-sm p-0 ml-2" onclick="downloadModel()">Retry</button>
+      </div>
+    `;
+  }
+}
+
+async function streamingGenerating(messages, onUpdate, onFinish, onError) {
+  try {
+    let curMessage = "";
+    const completion = await webllmEngine.chat.completions.create({
+      stream: true,
+      messages
+    });
+    for await (const chunk of completion) {
+      const curDelta = chunk.choices[0].delta.content;
+      if (curDelta) {
+        curMessage += curDelta;
+      }
+      onUpdate(curMessage);
+    }
+    const finalMessage = await webllmEngine.getMessage();
+    onFinish(finalMessage);
+  } catch (err) {
+    onError(err);
+  }
+}
 
 function handleKeyPress(event) {
   if (event.key === 'Enter' && !event.shiftKey) {
@@ -76,21 +297,76 @@ function sendMessage() {
   
   if (!message) return;
   
-  // Add user message
+  // Check if model is ready
+  if (!isModelReady) {
+    addMessage("Please download the model first before chatting.", 'agent');
+    return;
+  }
+  
+  // Disable send button during generation
+  const sendButton = document.getElementById('sendButton');
+  sendButton.disabled = true;
+  messageInput.disabled = true;
+  messageInput.placeholder = "Generating...";
+  
+  // Add user message to WebLLM messages array
+  const userMessage = {
+    content: message,
+    role: "user"
+  };
+  messages.push(userMessage);
+  
+  // Add user message to UI
   addMessage(message, 'user');
   messageInput.value = '';
-  
-  // Auto-resize textarea back to original size
   messageInput.style.height = 'auto';
   
-  // Simulate AI response
-  setTimeout(() => {
-    showTypingIndicator();
-    setTimeout(() => {
-      hideTypingIndicator();
-      addMessage(generateResponse(message), 'agent');
-    }, 1500);
-  }, 300);
+  // Show typing indicator
+  showTypingIndicator();
+  
+  // Create assistant message placeholder
+  const aiMessage = {
+    content: "",
+    role: "assistant"
+  };
+  
+  let currentResponse = "";
+  
+  const onUpdate = (content) => {
+    currentResponse = content;
+    updateTypingIndicatorWithContent(content);
+  };
+  
+  const onFinish = (finalMessage) => {
+    hideTypingIndicator();
+    addMessage(finalMessage, 'agent');
+    
+    // Re-enable input
+    sendButton.disabled = false;
+    messageInput.disabled = false;
+    messageInput.placeholder = "Type your message...";
+    messageInput.focus();
+    
+    // Show runtime stats if available
+    webllmEngine.runtimeStatsText().then((statsText) => {
+      console.log("Runtime stats:", statsText);
+    });
+  };
+  
+  const onError = (error) => {
+    console.error("Generation error:", error);
+    hideTypingIndicator();
+    addMessage(`Sorry, I encountered an error: ${error.message}`, 'agent');
+    
+    // Re-enable input
+    sendButton.disabled = false;
+    messageInput.disabled = false;
+    messageInput.placeholder = "Type your message...";
+    messageInput.focus();
+  };
+  
+  // Start streaming generation
+  streamingGenerating(messages, onUpdate, onFinish, onError);
 }
 
 function addMessage(content, sender) {
@@ -159,6 +435,19 @@ function showTypingIndicator() {
   scrollToBottom();
 }
 
+function updateTypingIndicatorWithContent(content) {
+  const typingIndicator = document.getElementById('typingIndicator');
+  if (typingIndicator) {
+    // Replace typing dots with actual streaming content
+    const messageBubble = typingIndicator.querySelector('.message-bubble');
+    messageBubble.innerHTML = `
+      <div class="message-content">
+        <p class="mb-0">${escapeHtml(content)}</p>
+      </div>
+    `;
+  }
+}
+
 function hideTypingIndicator() {
   const typingIndicator = document.getElementById('typingIndicator');
   if (typingIndicator) {
@@ -173,6 +462,25 @@ function scrollToBottom() {
 
 function clearChat() {
   const chatMessages = document.getElementById('chatMessages');
+  
+  // Determine the status content based on current state
+  let statusContent = '';
+  if (isModelReady) {
+    statusContent = `<div class="alert alert-success mb-0 py-2">
+      <i class="fas fa-check-circle mr-2"></i>
+      Model loaded successfully! You can now chat offline.
+    </div>`;
+  } else if (isAutoLoading) {
+    statusContent = `<div class="alert alert-info mb-0 py-2">
+      <i class="fas fa-sync-alt fa-spin mr-2"></i>
+      Loading cached model...
+    </div>`;
+  } else {
+    statusContent = `<button class="btn btn-success btn-sm" id="downloadModelBtn" onclick="downloadModel()">
+      <i class="fas fa-download mr-2"></i>Download Model
+    </button>`;
+  }
+  
   chatMessages.innerHTML = `
     <div class="message-container agent-message" id="welcomeMessage">
       <div class="d-flex align-items-start mb-3">
@@ -181,8 +489,24 @@ function clearChat() {
         </div>
         <div class="message-bubble agent-bubble">
           <div class="message-content">
-            <p class="mb-2"><strong>👋 Welcome!</strong></p>
-            <p class="mb-0">I'm your AI assistant. How can I help you today?</p>
+            <p class="mb-2"><strong>🤖 WebLLM Chat Assistant</strong></p>
+            <p class="mb-3">This chat uses WebLLM technology and needs to download an AI model to your browser for offline operation.
+The model is Phi-4-mini-instruct-q0f16-MLC (591 MB)</p>
+            <div class="webllm-status" id="webllmStatus">
+              ${statusContent}
+            </div>
+            <div class="download-progress mt-3" id="downloadProgress" style="display: none;">
+              <div class="progress">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" 
+                     id="progressBar" 
+                     style="width: 0%" 
+                     aria-valuenow="0" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">0%</div>
+              </div>
+              <small class="text-muted mt-2 d-block" id="downloadStatus">Preparing download...</small>
+            </div>
           </div>
           <div class="message-timestamp">
             <small class="text-muted">Just now</small>
@@ -194,31 +518,6 @@ function clearChat() {
   messageCount = 0;
 }
 
-function generateResponse(userMessage) {
-  // Simple response generator for demo purposes
-  const responses = [
-    "That's an interesting question! Let me think about that...",
-    "I understand what you're asking. Here's what I can tell you:",
-    "Great question! Based on my knowledge, I would say:",
-    "Thanks for asking! From my perspective:",
-    "That's a thoughtful inquiry. My response would be:",
-    "I appreciate you bringing this up. Here's my take:"
-  ];
-  
-  const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-  
-  // Add some context based on the message
-  if (userMessage.toLowerCase().includes('help')) {
-    return "I'm here to help! You can ask me about various topics, and I'll do my best to provide helpful information.";
-  } else if (userMessage.toLowerCase().includes('hello') || userMessage.toLowerCase().includes('hi')) {
-    return "Hello! It's great to meet you. What would you like to chat about today?";
-  } else if (userMessage.toLowerCase().includes('time')) {
-    return `The current time is ${new Date().toLocaleTimeString()}. Is there anything else I can help you with?`;
-  } else {
-    return `${randomResponse} Though this is a demo interface, in a real implementation, I would provide more detailed and contextual responses based on your question: "${userMessage}"`;
-  }
-}
-
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -226,13 +525,35 @@ function escapeHtml(text) {
 }
 
 // Auto-resize textarea
-document.getElementById('messageInput').addEventListener('input', function() {
-  this.style.height = 'auto';
-  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+document.addEventListener('DOMContentLoaded', function() {
+  const messageInput = document.getElementById('messageInput');
+  
+  messageInput.addEventListener('input', function() {
+    if (!this.disabled) {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    }
+  });
+  
+  // Check if model is already downloaded and auto-load
+  setTimeout(() => {
+    autoLoadModel();
+  }, 1000); // Small delay to ensure UI is ready
 });
 
-// Focus on input when page loads
-document.addEventListener('DOMContentLoaded', function() {
-  document.getElementById('messageInput').focus();
-});
+// Update placeholder and enable input after model is ready
+function enableChatInput() {
+  const messageInput = document.getElementById('messageInput');
+  const sendButton = document.getElementById('sendButton');
+  
+  messageInput.disabled = false;
+  sendButton.disabled = false;
+  messageInput.placeholder = "Type your message...";
+  messageInput.focus();
+}
+
+// Make functions globally available
+window.downloadModel = downloadModel;
+window.handleKeyPress = handleKeyPress;
+window.sendMessage = sendMessage;
 </script>

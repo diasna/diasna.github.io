@@ -32,7 +32,7 @@ class ChatUI {
     });
   }
 
-  addMessage(content, sender) {
+  addMessage(content, sender, toolInfo = null) {
     const chatMessages = document.getElementById('chatMessages');
     const messageContainer = document.createElement('div');
     messageContainer.className = `message-container ${sender}-message`;
@@ -40,7 +40,7 @@ class ChatUI {
     const timestamp = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
     // Format content for better display
-    let formattedContent = this.formatMessageContent(content);
+    const formattedContent = this.formatMessageContent(content);
     
     if (sender === 'user') {
       messageContainer.innerHTML = `
@@ -56,6 +56,21 @@ class ChatUI {
         </div>
       `;
     } else {
+      // Create tool badge if toolInfo is provided
+      let toolBadgeHtml = '';
+      if (toolInfo) {
+        const badgeClass = this.getToolBadgeClass(toolInfo.action);
+        const iconClass = this.getToolIcon(toolInfo.action);
+        const toolName = this.getToolDisplayName(toolInfo.action);
+        
+        toolBadgeHtml = `
+          <div class="tool-badge ${badgeClass}">
+            <i class="${iconClass}"></i>
+            Source: ${toolName}
+          </div>
+        `;
+      }
+      
       messageContainer.innerHTML = `
         <div class="d-flex align-items-start">
           <div class="agent-avatar rounded-circle bg-primary d-flex align-items-center justify-content-center mr-3">
@@ -65,8 +80,9 @@ class ChatUI {
             <div class="message-content">
               <div class="mb-0">${formattedContent}</div>
             </div>
-            <div class="message-timestamp">
+            <div class="message-timestamp d-flex justify-content-between align-items-center">
               <small class="text-muted">${timestamp}</small>
+              ${toolBadgeHtml}
             </div>
           </div>
         </div>
@@ -176,6 +192,36 @@ class ChatUI {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML.replace(/\n/g, '<br>');
+  }
+
+  getToolBadgeClass(action) {
+    const badgeMap = {
+      'get_weather': 'tool-badge-weather',
+      'get_stock_price': 'tool-badge-stock', 
+      'search_web': 'tool-badge-search',
+      'get_current_time': 'tool-badge-time'
+    };
+    return badgeMap[action] || 'tool-badge-default';
+  }
+
+  getToolIcon(action) {
+    const iconMap = {
+      'get_weather': 'radix-icons ri-sun-icon',
+      'get_stock_price': 'radix-icons ri-activity-log-icon',
+      'search_web': 'radix-icons ri-magnifying-glass-icon',
+      'get_current_time': 'radix-icons ri-clock-icon'
+    };
+    return iconMap[action] || 'radix-icons ri-gear-icon';
+  }
+
+  getToolDisplayName(action) {
+    const nameMap = {
+      'get_weather': 'Weather',
+      'get_stock_price': 'Stock Price',
+      'search_web': 'Web Search',
+      'get_current_time': 'Current Time'
+    };
+    return nameMap[action] || 'Tool';
   }
 
   enableChatInput() {

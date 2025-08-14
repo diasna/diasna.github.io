@@ -949,6 +949,93 @@
   background: rgba(23, 162, 184, 0.1);
 }
 
+/* Tool Badge Styles - Inline with Timestamp */
+.tool-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  border: 1px solid;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.tool-badge:hover {
+  opacity: 1;
+}
+
+.message-bubble .tool-badge-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.tool-badge-weather {
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+  border-color: rgba(40, 167, 69, 0.2);
+}
+
+.tool-badge-stock {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+  border-color: rgba(255, 193, 7, 0.2);
+}
+
+.tool-badge-search {
+  background: rgba(23, 162, 184, 0.1);
+  color: #17a2b8;
+  border-color: rgba(23, 162, 184, 0.2);
+}
+
+.tool-badge-time {
+  background: rgba(156, 39, 176, 0.1);
+  color: #9c27b0;
+  border-color: rgba(156, 39, 176, 0.2);
+}
+
+.tool-badge-default {
+  background: rgba(0, 123, 255, 0.1);
+  color: #007bff;
+  border-color: rgba(0, 123, 255, 0.2);
+}
+
+/* Dark mode tool badges */
+[data-theme="dark"] .tool-badge-weather {
+  background: rgba(40, 167, 69, 0.15);
+  color: #4caf50;
+  border-color: rgba(40, 167, 69, 0.3);
+}
+
+[data-theme="dark"] .tool-badge-stock {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffca28;
+  border-color: rgba(255, 193, 7, 0.3);
+}
+
+[data-theme="dark"] .tool-badge-search {
+  background: rgba(23, 162, 184, 0.15);
+  color: #26c6da;
+  border-color: rgba(23, 162, 184, 0.3);
+}
+
+[data-theme="dark"] .tool-badge-time {
+  background: rgba(156, 39, 176, 0.15);
+  color: #ba68c8;
+  border-color: rgba(156, 39, 176, 0.3);
+}
+
+[data-theme="dark"] .tool-badge-default {
+  background: rgba(0, 123, 255, 0.15);
+  color: #42a5f5;
+  border-color: rgba(0, 123, 255, 0.3);
+}
+
 .tool-result {
   margin: 12px 0;
   padding: 12px;

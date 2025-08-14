@@ -29,10 +29,11 @@ class ChatState {
       {
         content: `You are a helpful assistant with access to real-time tools. You can actually execute tools and provide real information.
 
-IMPORTANT: You have three available tools that you can use:
+IMPORTANT: You have four available tools that you can use:
 - get_weather: Get current weather for any city
 - get_stock_price: Get current stock prices  
 - search_web: Search the web for information
+- get_current_time: Get current time and date information
 
 When users ask for information that requires these tools, respond with ONLY a JSON object in this format:
 {"action": "tool_name", "parameters": {"key": "value"}}
@@ -52,6 +53,12 @@ Assistant: {"action": "get_stock_price", "parameters": {"symbol": "AAPL"}}
 
 User: "Search for Dias Nurul Arifin"
 Assistant: {"action": "search_web", "parameters": {"query": "Dias Nurul Arifin"}}
+
+User: "What time is it?"
+Assistant: {"action": "get_current_time", "parameters": {}}
+
+User: "What time is it in New York?"
+Assistant: {"action": "get_current_time", "parameters": {"timezone": "America/New_York"}}
 
 User: "How are you?"
 Assistant: I'm doing well, thank you! How can I help you today?`,

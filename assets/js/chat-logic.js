@@ -62,7 +62,12 @@ class ChatLogic {
     
     const onFinish = (finalMessage) => {
       chatUI.hideTypingIndicator();
-      chatUI.addMessage(finalMessage, 'agent');
+      
+      // Check if we have tool info to pass along
+      const toolInfo = this.currentToolInfo || null;
+      this.currentToolInfo = null; // Clear it after use
+      
+      chatUI.addMessage(finalMessage, 'agent', toolInfo);
       
       sendButton.disabled = false;
       messageInput.disabled = false;
@@ -151,6 +156,7 @@ Available tools:
 - get_weather: For weather information requests (city required)
 - get_stock_price: For stock price requests (symbol required)  
 - search_web: For web search requests (query required)
+- get_current_time: For current time requests (timezone optional)
 
 User message: "${message}"
 
@@ -164,6 +170,8 @@ Examples:
 - "weather in Tokyo" → {"action": "get_weather", "parameters": {"city": "Tokyo"}}
 - "AAPL stock price" → {"action": "get_stock_price", "parameters": {"symbol": "AAPL"}}
 - "search for cats" → {"action": "search_web", "parameters": {"query": "cats"}}
+- "what time is it" → {"action": "get_current_time", "parameters": {}}
+- "time in New York" → {"action": "get_current_time", "parameters": {"timezone": "America/New_York"}}
 - "hello" → NONE
 
 Response:`;
@@ -222,6 +230,10 @@ Response:`;
         const query = toolCallData.parameters.query || 'information';
         statusMessage = `🔍 Searching the web for "${query}"...`;
         break;
+      case 'get_current_time':
+        const timezone = toolCallData.parameters.timezone;
+        statusMessage = timezone ? `🕒 Getting current time for ${timezone}...` : `🕒 Getting current time...`;
+        break;
       default:
         statusMessage = `🔧 Executing tool: ${toolCallData.action}...`;
     }
@@ -254,6 +266,8 @@ Response:`;
         }
       }
       
+      // Store tool info for the final message
+      this.currentToolInfo = toolCallData;
       onFinish(followUpMessage);
       
     } catch (error) {
@@ -300,7 +314,7 @@ Response:`;
       `;
       
       chatUI.enableChatInput();
-      chatUI.addMessage("Great! The WebLLM model has been downloaded and loaded. I'm now ready to chat with you offline!\n\n🛠️ **Available Tools:**\n🌤️ `get_weather` - Get weather by city name\n📈 `get_stock_price` - Get stock price by symbol\n🔍 `search_web` - Search the web for information\n\nTry asking: \"What's the weather in Tangerang?\", \"Get AAPL stock price\", or \"Search for latest AI news\"", 'agent');
+      chatUI.addMessage("Great! The WebLLM model has been downloaded and loaded. I'm now ready to chat with you offline!\n\n🛠️ **Available Tools:**\n🌤️ `get_weather` - Get weather by city name\n📈 `get_stock_price` - Get stock price by symbol\n🔍 `search_web` - Search the web for information\n🕒 `get_current_time` - Get current time and date\n\nTry asking: \"What's the weather in Tangerang?\", \"Get AAPL stock price\", \"What time is it?\", or \"Search for latest AI news\"", 'agent');
       
     } catch (error) {
       console.error('Error downloading model:', error);

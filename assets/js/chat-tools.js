@@ -95,6 +95,53 @@ export async function search_web(query) {
   }
 }
 
+// Current time function
+export async function get_current_time(timezone = null) {
+  try {
+    const now = new Date();
+    
+    // Get local time details
+    const localTime = now.toLocaleString();
+    const localTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+    // Format different time representations
+    const result = {
+      current_time: localTime,
+      timezone: timezone || localTimeZone,
+      utc_time: now.toISOString(),
+      unix_timestamp: Math.floor(now.getTime() / 1000),
+      formatted: {
+        date: now.toLocaleDateString(),
+        time: now.toLocaleTimeString(),
+        day_of_week: now.toLocaleDateString('en-US', { weekday: 'long' }),
+        month: now.toLocaleDateString('en-US', { month: 'long' }),
+        year: now.getFullYear()
+      }
+    };
+    
+    // If a specific timezone is requested, try to format for that timezone
+    if (timezone && timezone !== localTimeZone) {
+      try {
+        const timeInTimezone = now.toLocaleString('en-US', { timeZone: timezone });
+        result.requested_timezone_time = timeInTimezone;
+        result.timezone = timezone;
+      } catch (timezoneError) {
+        result.timezone_error = `Invalid timezone: ${timezone}`;
+        result.timezone = localTimeZone;
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Time API error:', error);
+    return {
+      current_time: new Date().toLocaleString(),
+      timezone: "Local",
+      error: "Could not retrieve detailed time information"
+    };
+  }
+}
+
 // Execute tool calls from JSON format
 export async function executeToolCall(toolCallData) {
   const functionName = toolCallData.action;
@@ -107,6 +154,8 @@ export async function executeToolCall(toolCallData) {
       return await get_stock_price(functionArgs.symbol);
     case 'search_web':
       return await search_web(functionArgs.query);
+    case 'get_current_time':
+      return await get_current_time(functionArgs.timezone);
     default:
       throw new Error(`Unknown tool: ${functionName}`);
   }

@@ -90,6 +90,17 @@ class ChatLogic {
 
   async streamingGenerating(messages, onUpdate, onFinish, onError) {
     try {
+      // First, check if the user's message needs a tool (before generating any response)
+      const userMessage = messages[messages.length - 1].content;
+      const intentResult = await this.detectIntent(userMessage);
+      
+      if (intentResult) {
+        console.log("Intent detected before generation:", intentResult);
+        await this.executeToolFlow(intentResult, "", messages, onUpdate, onFinish);
+        return;
+      }
+
+      // If no tool detected, proceed with normal AI response
       let curMessage = "";
       
       const completion = await chatState.webllmEngine.chat.completions.create({
@@ -106,7 +117,7 @@ class ChatLogic {
         }
       }
       
-      // Try to parse as JSON tool call
+      // As a fallback, still check if the AI generated a JSON tool call
       let toolCallData = null;
       try {
         const trimmedMessage = curMessage.trim();
@@ -119,15 +130,7 @@ class ChatLogic {
           }
         }
       } catch (jsonError) {
-        console.log("JSON parsing failed, trying intent detection...");
-      }
-      
-      // Fallback: Intent detection for common patterns
-      const intentResult = this.detectIntent(curMessage);
-      if (intentResult) {
-        console.log("Intent detected:", intentResult);
-        await this.executeToolFlow(intentResult, curMessage, messages, onUpdate, onFinish);
-        return;
+        console.log("JSON parsing failed, but that's okay - normal response");
       }
       
       // Regular response without tools
@@ -139,86 +142,105 @@ class ChatLogic {
     }
   }
 
-  detectIntent(message) {
-    const lowerMessage = message.toLowerCase();
-    
-    // Weather patterns
-    if (lowerMessage.includes('weather') || lowerMessage.includes('temperature') || lowerMessage.includes('forecast')) {
-      const weatherPatterns = [
-        /weather.*?(?:in|for|at)\s+([a-zA-Z\s]+?)(?:\?|$|\.)/i,
-        /(?:in|for|at)\s+([a-zA-Z\s]+?).*?weather/i,
-        /([a-zA-Z\s]+?)\s+weather/i
-      ];
+  async detectIntent(message) {
+    try {
+      // Use the AI model to detect intent
+      const intentPrompt = `You are a tool detection system. Analyze this user message and determine if they want to use a tool.
+
+Available tools:
+- get_weather: For weather information requests (city required)
+- get_stock_price: For stock price requests (symbol required)  
+- search_web: For web search requests (query required)
+
+User message: "${message}"
+
+Rules:
+1. If the user wants a tool, respond with ONLY the JSON object (no explanation)
+2. If no tool is needed, respond with ONLY the word "NONE"
+3. Never explain what tools do or give instructions
+4. Extract the most relevant parameter from the user's message
+
+Examples:
+- "weather in Tokyo" → {"action": "get_weather", "parameters": {"city": "Tokyo"}}
+- "AAPL stock price" → {"action": "get_stock_price", "parameters": {"symbol": "AAPL"}}
+- "search for cats" → {"action": "search_web", "parameters": {"query": "cats"}}
+- "hello" → NONE
+
+Response:`;
+
+      // Create a lightweight completion for intent detection
+      const completion = await chatState.webllmEngine.chat.completions.create({
+        messages: [
+          { role: "system", content: "You are a tool detection system. Respond with ONLY JSON or 'NONE'. Never provide explanations." },
+          { role: "user", content: intentPrompt }
+        ],
+        temperature: 0.1, // Low temperature for consistent parsing
+        max_tokens: 50    // Very short response to prevent explanations
+      });
+
+      const response = completion.choices[0].message.content.trim();
       
-      for (const pattern of weatherPatterns) {
-        const match = message.match(pattern);
-        if (match && match[1]) {
-          const city = match[1].trim();
-          if (city.length > 1 && city.length < 50) {
-            return { action: "get_weather", parameters: { city: city } };
-          }
-        }
+      // Handle "NONE" response
+      if (response === "NONE" || response.toLowerCase() === "none") {
+        return null;
       }
-      
-      return { action: "get_weather", parameters: { city: "London" } };
-    }
-    
-    // Stock patterns
-    if (lowerMessage.includes('stock') || lowerMessage.includes('price') || lowerMessage.includes('ticker')) {
-      const stockPatterns = [
-        /(?:stock|price|ticker).*?([A-Z]{2,5})/i,
-        /([A-Z]{2,5}).*?(?:stock|price)/i,
-        /(apple|microsoft|google|tesla|amazon)/i
-      ];
-      
-      for (const pattern of stockPatterns) {
-        const match = message.match(pattern);
-        if (match && match[1]) {
-          let symbol = match[1].toUpperCase();
-          
-          const companyMap = {
-            'APPLE': 'AAPL', 'MICROSOFT': 'MSFT', 'GOOGLE': 'GOOGL',
-            'TESLA': 'TSLA', 'AMAZON': 'AMZN'
-          };
-          
-          symbol = companyMap[symbol] || symbol;
-          return { action: "get_stock_price", parameters: { symbol: symbol } };
+
+      // Try to parse JSON response
+      try {
+        const intentData = JSON.parse(response);
+        
+        // Validate the response has required fields
+        if (intentData.action && intentData.parameters) {
+          console.log("AI detected intent:", intentData);
+          return intentData;
         }
+      } catch (parseError) {
+        console.log("Failed to parse AI intent response:", response);
       }
+
+      return null;
+
+    } catch (error) {
+      console.error("AI intent detection failed:", error);
+      return null;
     }
-    
-    // Search patterns
-    if (lowerMessage.includes('search') || lowerMessage.includes('find') || lowerMessage.includes('look up')) {
-      const searchPatterns = [
-        /(?:search|find|look up).*?(?:for|about)\s+(.+?)(?:\?|$|\.)/i,
-        /(?:search|find)\s+(.+?)(?:\?|$|\.)/i
-      ];
-      
-      for (const pattern of searchPatterns) {
-        const match = message.match(pattern);
-        if (match && match[1]) {
-          return { action: "search_web", parameters: { query: match[1].trim() } };
-        }
-      }
-    }
-    
-    return null;
   }
 
   async executeToolFlow(toolCallData, originalMessage, messages, onUpdate, onFinish) {
-    onUpdate(originalMessage + `\n\n🔧 Executing tool: ${toolCallData.action}...`);
+    // Show simple status message based on tool type
+    let statusMessage = "";
+    switch (toolCallData.action) {
+      case 'get_weather':
+        const city = toolCallData.parameters.city || 'your location';
+        statusMessage = `🌤️ Looking up current weather in ${city}...`;
+        break;
+      case 'get_stock_price':
+        const symbol = toolCallData.parameters.symbol || 'stock';
+        statusMessage = `📈 Getting ${symbol} stock price...`;
+        break;
+      case 'search_web':
+        const query = toolCallData.parameters.query || 'information';
+        statusMessage = `🔍 Searching the web for "${query}"...`;
+        break;
+      default:
+        statusMessage = `🔧 Executing tool: ${toolCallData.action}...`;
+    }
+    
+    onUpdate(statusMessage);
     
     try {
       const toolResult = await executeToolCall(toolCallData);
       
+      // Add the tool execution to message history
       messages.push({ role: "assistant", content: originalMessage });
       messages.push({ role: "user", content: `Tool result: ${JSON.stringify(toolResult)}` });
       
+      // Generate a natural response based on the tool result
       const followUpCompletion = await chatState.webllmEngine.chat.completions.create({
         stream: true,
         messages: [...messages, {
           role: "user",
-          content: "Based on the tool result above, provide a helpful response to the user in plain text."
+          content: `Based on the tool result above, provide a helpful and concise response to the user. Present the information in a natural, conversational way without mentioning JSON or technical details.`
         }]
       });
       
@@ -227,17 +249,18 @@ class ChatLogic {
         const followUpDelta = followUpChunk.choices[0].delta.content;
         if (followUpDelta) {
           followUpMessage += followUpDelta;
-          onUpdate(originalMessage + `\n\n📊 Tool Result:\n${JSON.stringify(toolResult, null, 2)}\n\n` + followUpMessage);
+          // Show the natural response as it streams
+          onUpdate(followUpMessage);
         }
       }
       
-      const finalMessage = originalMessage + `\n\n📊 Tool Result:\n${JSON.stringify(toolResult, null, 2)}\n\n` + followUpMessage;
-      onFinish(finalMessage);
+      onFinish(followUpMessage);
       
     } catch (error) {
       console.error('Tool execution error:', error);
-      onUpdate(originalMessage + `\n\n❌ Tool execution failed: ${error.message}`);
-      onFinish(originalMessage + `\n\n❌ Tool execution failed: ${error.message}`);
+      const errorMessage = `❌ Sorry, I couldn't complete that request: ${error.message}`;
+      onUpdate(errorMessage);
+      onFinish(errorMessage);
     }
   }
 

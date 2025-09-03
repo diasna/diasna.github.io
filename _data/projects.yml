@@ -1,0 +1,52 @@
+- title: "NX Video Player"
+  description: "Video Player is a C++ and Makefile project that implements a video player for the Nintendo Switch using the devkitPro development environment."
+  image: "https://placehold.co/600x400"
+  technologies:
+    - "DevkitPro"
+    - "C++"
+    - "Nintendo Switch"
+  github: "https://github.com/diasna/videoplayer"
+  demo: "#"
+  status: "In Progress"
+
+- title: "Mini Headline"
+  description: "Mini Headline is a C++ project that demonstrates how to display news headlines on SSD1306-based OLED screens using embedded systems."
+  image: "/assets/images/headline.png"
+  technologies:
+    - "IoT"
+    - "C++"
+    - "Arduino"
+  github: "https://github.com/diasna/OLED-SSD1306"
+  demo: "#"
+  status: "Completed"
+
+- title: "Remote AC"
+  description: "ar05tghq-control is a C++ project that provides control logic and examples for managing the ar05tghq hardware device using embedded systems."
+  image: "/assets/images/remoteac.png"
+  technologies:
+    - "IoT"
+    - "C++"
+    - "Arduino"
+  github: "https://github.com/diasna/ar05tghq-control"
+  demo: "#"
+  status: "Completed"
+
+- title: "ESP32 Ringlight Control + Cameras"
+  description: "ESP32 CAM & Ringlight is an open-source project that integrates an ESP32-based camera module with a controllable ring light."
+  image: "/assets/images/ringlight.png"
+  technologies:
+    - "IoT"
+    - "C++"
+    - "Arduino"
+  github: "/assets/images/ringlight.png"
+  demo: "#"
+  status: "Completed"
+
+- title: "Comic Reader"
+  description: "Comic Reader is a web-based application built with Go and HTML that allows users to conveniently view and navigate digital comic books through a simple and intuitive interface."
+  image: "https://placehold.co/600x400"
+  technologies:
+    - "Golang"
+  github: "https://github.com/diasna/comic-reader"
+  demo: "#"
+  status: "Completed"

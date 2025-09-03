@@ -1,0 +1,29 @@
+- name: "IoT"
+  slug: "iot"
+  description: "Internet of Things (IoT) concepts and applications"
+  color: "bg-yellow-100 text-yellow-800"
+  count: 2
+
+- name: "Arduino"
+  slug: "arduino"
+  description: "Arduino platform, programming, and hardware projects"
+  color: "bg-blue-100 text-blue-800"
+  count: 2
+
+- name: "Back-end development"
+  slug: "back-end-development"
+  description: "Server-side programming, APIs, and database management"
+  color: "bg-green-100 text-green-800"
+  count: 0
+
+- name: "Front-end development"
+  slug: "front-end-development"
+  description: "Client-side programming, UI/UX design, and responsive layouts"
+  color: "bg-purple-100 text-purple-800"
+  count: 0
+
+- name: "Natural language processing"
+  slug: "natural-language-processing"
+  description: "Techniques for processing and analyzing human language"
+  color: "bg-indigo-100 text-indigo-800"
+  count: 0

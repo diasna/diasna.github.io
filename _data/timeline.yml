@@ -1,39 +1,56 @@
-- title: Development Lead, ASYX Indonesia, ID
-  from: 2024
-  to: preset
-  description: Leading the development of enterprise supply chain finance platforms. Responsible for system architecture, technical direction, and mentoring engineering teams using Java, Spring Boot, Kafka, and microservices.
+- year: "2024"
+  items:
+    - date: "2024 – Present"
+      title: "Development Lead"
+      company: "ASYX Indonesia, ID"
+      description: "Leading the development of enterprise supply chain finance platforms. Responsible for system architecture, technical direction, and mentoring engineering teams using Java, Spring Boot, Kafka, and microservices."
+      type: "work"
 
-- title: Software Engineer, ASYX Indonesia, ID
-  from: 2016
-  to: 2024
-  description: Built and maintained scalable backend systems for financial services. Developed core features, API integrations, and internal tools with Java, Flowable, and Elasticsearch in a distributed microservices environment.
+    - date: "2016 – 2024"
+      title: "Software Engineer"
+      company: "ASYX Indonesia, ID"
+      description: "Built and maintained scalable backend systems for financial services. Developed core features, API integrations, and internal tools with Java, Flowable, and Elasticsearch in a distributed microservices environment."
+      type: "work"
 
-- title: Mobile Developer, Temansoft, ID
-  from: 2015
-  to: 2016
-  description: Developed Android applications and contributed to the design of user interfaces and backend API consumption. Focused on delivering performant mobile experiences for enterprise clients.
+- year: "2016"
+  items:
+    - date: "2016 – 2024"
+      title: "Fullstack Developer"
+      company: "Meruvian, ID"
+      description: "Delivered end-to-end software solutions using Java technologies. Engaged in both backend and frontend development, training sessions, and open-source projects under the Meruvian foundation."
+      type: "work"
+    - date: "2015 – 2016"
+      title: "Mobile Developer"
+      company: "Temansoft, ID"
+      description: "Developed Android applications and contributed to the design of user interfaces and backend API consumption. Focused on delivering performant mobile experiences for enterprise clients."
+      type: "work"
 
-- title: Freelance Mobile Developer, IBJAPAN.JP, JP
-  from: 2014
-  to: 2015
-  description: Worked remotely on Android application development for a Japanese client. Responsible for implementing UI features, localization, and API integration.
+    - date: "2010 – 2016"
+      title: "Bachelor's in Computer Science"
+      company: "Gunadarma University, ID"
+      description: "Bachelor's degree in Computer Science, with a focus on software development, networking, and system analysis."
+      type: "education"
 
-- title: Software Engineer, PT Nusa Satu Inti Artha (DOKU), ID
-  from: 2013
-  to: 2014
-  description: Contributed to backend development of payment gateway systems. Involved in integration projects with external partners and ensuring security and reliability in transaction processing.
+- year: "2015"
+  items:
+    - date: "2014 – 2015"
+      title: "Freelance Mobile Developer"
+      company: "IBJAPAN.JP, JP"
+      description: "Worked remotely on Android application development for a Japanese client. Responsible for implementing UI features, localization, and API integration."
+      type: "work"
 
-- title: Fullstack Developer, Meruvian, ID
-  from: 2016
-  to: 2024
-  description: Delivered end-to-end software solutions using Java technologies. Engaged in both backend and frontend development, training sessions, and open-source projects under the Meruvian foundation.
+- year: "2014"
+  items:
+    - date: "2013 – 2014"
+      title: "Software Engineer"
+      company: "PT Nusa Satu Inti Artha (DOKU), ID"
+      description: "Contributed to backend development of payment gateway systems. Involved in integration projects with external partners and ensuring security and reliability in transaction processing."
+      type: "work"
 
-- title: Student, Gunadarma University, ID
-  from: 2010
-  to: 2016
-  description: Bachelor's degree in Computer Science, with a focus on software development, networking, and system analysis.
-
-- title: Student, SMK PGRI 3 Malang, ID
-  from: 2007
-  to: 2010
-  description: Majored in Computer, Network, and Informatics Engineering. Built foundational skills in IT infrastructure and software fundamentals.
+- year: "2010"
+  items:
+    - date: "2007 – 2010"
+      title: "Student"
+      company: "SMK PGRI 3 Malang, ID"
+      description: "Majored in Computer, Network, and Informatics Engineering. Built foundational skills in IT infrastructure and software fundamentals."
+      type: "education"

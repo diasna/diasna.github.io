@@ -1,0 +1,67 @@
+---
+layout: default
+---
+
+<article class="max-w-4xl mx-auto px-6 py-16 pt-24">
+    <!-- Post Header -->
+    <header class="text-center mb-12">
+        <h1 class="text-4xl md:text-5xl font-bold text-neutral-800 mb-6">{{ page.title }}</h1>
+        <div class="flex items-center justify-center gap-6 text-neutral-600 mb-8">
+            <time datetime="{{ page.date | date_to_xmlschema }}">{{ page.date | date: "%B %d, %Y" }}</time>
+            {% if page.categories.size > 0 %}
+                <span class="w-1 h-1 bg-neutral-400 rounded-full"></span>
+                <div class="flex gap-2">
+                    {% for category in page.categories %}
+                        <span class="px-3 py-1 text-xs font-medium bg-neutral-100 text-neutral-700 rounded-full">
+                            {{ category }}
+                        </span>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- Post Content -->
+    <div class="prose prose-neutral max-w-none">
+        {{ content }}
+    </div>
+
+    <!-- Post Navigation -->
+    <nav class="flex justify-between items-center mt-16 pt-8 border-t border-neutral-200">
+        {% if page.previous.url %}
+            <a href="{{ page.previous.url }}" class="flex items-center gap-2 text-neutral-600 hover:text-neutral-800 transition-colors group">
+                <svg class="w-4 h-4 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+                <div>
+                    <div class="text-sm text-neutral-500">Previous</div>
+                    <div class="font-medium">{{ page.previous.title }}</div>
+                </div>
+            </a>
+        {% else %}
+            <div></div>
+        {% endif %}
+
+        {% if page.next.url %}
+            <a href="{{ page.next.url }}" class="flex items-center gap-2 text-neutral-600 hover:text-neutral-800 transition-colors group text-right">
+                <div>
+                    <div class="text-sm text-neutral-500">Next</div>
+                    <div class="font-medium">{{ page.next.title }}</div>
+                </div>
+                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        {% endif %}
+    </nav>
+
+    <!-- Back to Blog -->
+    <div class="text-center mt-12">
+        <a href="/blog/" class="inline-flex items-center gap-2 px-6 py-3 bg-neutral-800 text-white rounded-lg hover:bg-neutral-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Blog
+        </a>
+    </div>
+</article>
